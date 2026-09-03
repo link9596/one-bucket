@@ -403,46 +403,60 @@ export default {
     }
 
     // ---------- 重命名 ----------
-    if (path === "/rename" && request.method === "POST") {
-      const oldKey = decodeURIComponent(url.searchParams.get("oldKey") || "");
-      const newName = decodeURIComponent(url.searchParams.get("newName") || "");
-      if (!oldKey || !newName) return Response.json({ code: 400, msg: "缺少参数" }, { status: 400, headers: corsHeaders });
-      if (newName.includes("/")) return Response.json({ code: 400, msg: "新名称不能包含 /" }, { status: 400, headers: corsHeaders });
+if (path === "/rename" && request.method === "POST") {
+  const oldKey = decodeURIComponent(url.searchParams.get("oldKey") || "");
+  const newName = decodeURIComponent(url.searchParams.get("newName") || "");
+  if (!oldKey || !newName) return Response.json({ code: 400, msg: "缺少参数" }, { status: 400, headers: corsHeaders });
+  if (newName.includes("/")) return Response.json({ code: 400, msg: "新名称不能包含 /" }, { status: 400, headers: corsHeaders });
 
-      const lastSlashIndex = oldKey.lastIndexOf("/");
-      const dirPath = lastSlashIndex >= 0 ? oldKey.substring(0, lastSlashIndex + 1) : "";
-      const newKey = dirPath + newName;
+  const isFolder = oldKey.endsWith("/");
 
-      const existing = await bucket.head(newKey);
-      if (existing) return Response.json({ code: 409, msg: "目标名称已存在" }, { status: 409, headers: corsHeaders });
+  // ---- 正确计算新路径 ----
+  let newKey;
+  if (isFolder) {
+    // 去掉末尾斜杠，找到父目录
+    const folderPath = oldKey.slice(0, -1); // 例如 "a/b"
+    const lastSlash = folderPath.lastIndexOf("/");
+    const parentDir = lastSlash >= 0 ? folderPath.substring(0, lastSlash + 1) : ""; // "a/"
+    newKey = parentDir + newName + "/"; // "a/新名称/"
+  } else {
+    // 文件：替换最后一个斜杠后的文件名
+    const lastSlash = oldKey.lastIndexOf("/");
+    const dirPath = lastSlash >= 0 ? oldKey.substring(0, lastSlash + 1) : "";
+    newKey = dirPath + newName;
+  }
 
-      const isFolder = oldKey.endsWith("/");
+  // 检查目标是否已存在
+  const existing = await bucket.head(newKey);
+  if (existing) return Response.json({ code: 409, msg: "目标名称已存在" }, { status: 409, headers: corsHeaders });
 
-      if (!isFolder) {
-        const object = await bucket.get(oldKey);
-        if (!object) return Response.json({ code: 404, msg: "原文件不存在" }, { status: 404, headers: corsHeaders });
-        if (object.size > 100 * 1024 * 1024) return Response.json({ code: 413, msg: "文件过大，暂不支持重命名" }, { status: 413, headers: corsHeaders });
-        await bucket.put(newKey, object.body, { httpMetadata: object.httpMetadata });
-        await bucket.delete(oldKey);
-        return Response.json({ code: 200, msg: "重命名成功", newKey }, { headers: corsHeaders });
-      } else {
-        const listResult = await bucket.list({ prefix: oldKey });
-        if (listResult.objects.length === 0) return Response.json({ code: 404, msg: "原文件夹不存在或为空" }, { status: 404, headers: corsHeaders });
-        if (listResult.objects.length > 1000) return Response.json({ code: 413, msg: "文件夹内文件过多，暂不支持重命名" }, { status: 413, headers: corsHeaders });
+  if (!isFolder) {
+    // 文件重命名（原逻辑不变）
+    const object = await bucket.get(oldKey);
+    if (!object) return Response.json({ code: 404, msg: "原文件不存在" }, { status: 404, headers: corsHeaders });
+    if (object.size > 100 * 1024 * 1024) return Response.json({ code: 413, msg: "文件过大，暂不支持重命名" }, { status: 413, headers: corsHeaders });
+    await bucket.put(newKey, object.body, { httpMetadata: object.httpMetadata });
+    await bucket.delete(oldKey);
+    return Response.json({ code: 200, msg: "重命名成功", newKey }, { headers: corsHeaders });
+  } else {
+    // 文件夹重命名：复制所有对象到新路径，再删除旧对象
+    const listResult = await bucket.list({ prefix: oldKey });
+    if (listResult.objects.length === 0) return Response.json({ code: 404, msg: "原文件夹不存在或为空" }, { status: 404, headers: corsHeaders });
+    if (listResult.objects.length > 1000) return Response.json({ code: 413, msg: "文件夹内文件过多，暂不支持重命名" }, { status: 413, headers: corsHeaders });
 
-        for (const obj of listResult.objects) {
-          const oldObjKey = obj.key;
-          const relativePart = oldObjKey.substring(oldKey.length);
-          const newObjKey = newKey + relativePart;
-          const object = await bucket.get(oldObjKey);
-          if (object) await bucket.put(newObjKey, object.body, { httpMetadata: object.httpMetadata });
-        }
-        for (const obj of listResult.objects) {
-          await bucket.delete(obj.key);
-        }
-        return Response.json({ code: 200, msg: "文件夹重命名成功", newKey }, { headers: corsHeaders });
-      }
+    for (const obj of listResult.objects) {
+      const oldObjKey = obj.key;
+      const relativePart = oldObjKey.substring(oldKey.length);
+      const newObjKey = newKey + relativePart;
+      const object = await bucket.get(oldObjKey);
+      if (object) await bucket.put(newObjKey, object.body, { httpMetadata: object.httpMetadata });
     }
+    for (const obj of listResult.objects) {
+      await bucket.delete(obj.key);
+    }
+    return Response.json({ code: 200, msg: "文件夹重命名成功", newKey }, { headers: corsHeaders });
+  }
+}
 
     // ---------- 获取桶用量 ----------
     if (path === "/usage" && request.method === "GET") {
