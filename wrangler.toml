@@ -9,11 +9,11 @@ compatibility_date = "2025-01-01"
 
 [[kv_namespaces]]
 binding = "SESSION_KV"                    # 与代码中 env.SESSION_KV 对应
-id = "r2-session"
+
 
 [[kv_namespaces]]
 binding = "BUCKET_CONFIG"                 # 与代码中 env.BUCKET_CONFIG 对应
-id = "r2-config"
+
 
 # ========== 环境变量 ==========
 # 敏感变量建议在 Cloudflare Dashboard 中设置（加密变量），此处仅作本地开发示例
