@@ -136,6 +136,12 @@ async function getBucketInstance(env, bucketId) {
   const configs = await getBucketsConfig(env);
   const conf = getBucketById(configs, bucketId);
   if (!conf) throw new Error(`Bucket config not found: ${bucketId}`);
+    console.log('Bucket config:', {
+    id: conf.id,
+    endpoint: conf.endpoint,
+    accessKeyId: conf.accessKeyId?.slice(0, 8) + '***',
+    hasSecret: !!conf.secretAccessKey
+  });
   return new R2CompatibleClient(conf);
 }
 
