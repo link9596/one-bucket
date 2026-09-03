@@ -7,34 +7,43 @@ async function getBucketsConfig(env) {
   const data = await env.BUCKET_CONFIG.get('buckets', 'json');
   return data || [];
 }
+
 async function saveBucketsConfig(env, config) {
   await env.BUCKET_CONFIG.put('buckets', JSON.stringify(config));
 }
+
 function getBucketById(config, id) {
   return config.find(b => b.id === id);
+}
+
+// 安全编码 S3 对象键：按 '/' 分割，每段 encodeURIComponent，再拼接
+function encodeS3Key(key) {
+  return key.split('/').map(segment => encodeURIComponent(segment)).join('/');
 }
 
 // ========== 存储客户端封装（兼容原生 R2 接口） ==========
 class R2CompatibleClient {
   constructor(config) {
     this.config = config;
+    // 保存 endpoint，并移除末尾可能存在的斜杠
+    this.endpoint = config.endpoint.replace(/\/$/, '');
     this.client = new AwsClient({
       accessKeyId: config.accessKeyId,
       secretAccessKey: config.secretAccessKey,
       service: 's3',
       region: 'auto',
-      endpoint: config.endpoint,
+      endpoint: this.endpoint,
     });
     this.bucketName = config.name;
   }
 
   async list({ prefix = '', delimiter = '/' } = {}) {
-    const url = `${this.client.endpoint}/${this.bucketName}?list-type=2&prefix=${encodeURIComponent(prefix)}&delimiter=${delimiter}`;
+    const url = `${this.endpoint}/${encodeURIComponent(this.bucketName)}?list-type=2&prefix=${encodeS3Key(prefix)}&delimiter=${encodeURIComponent(delimiter)}`;
     const resp = await this.client.fetch(url, { method: 'GET' });
     if (!resp.ok) throw new Error(`List failed: ${resp.status}`);
     const text = await resp.text();
 
-    // 使用 fast-xml-parser 解析
+    // 解析 XML
     const parser = new XMLParser({ ignoreAttributes: false, parseTagValue: false });
     const result = parser.parse(text);
     const root = result?.ListBucketResult || {};
@@ -71,7 +80,7 @@ class R2CompatibleClient {
   }
 
   async put(key, body, { httpMetadata = {} } = {}) {
-    const url = `${this.client.endpoint}/${this.bucketName}/${encodeURIComponent(key)}`;
+    const url = `${this.endpoint}/${encodeURIComponent(this.bucketName)}/${encodeS3Key(key)}`;
     const resp = await this.client.fetch(url, {
       method: 'PUT',
       body: body,
@@ -81,7 +90,7 @@ class R2CompatibleClient {
   }
 
   async get(key) {
-    const url = `${this.client.endpoint}/${this.bucketName}/${encodeURIComponent(key)}`;
+    const url = `${this.endpoint}/${encodeURIComponent(this.bucketName)}/${encodeS3Key(key)}`;
     const resp = await this.client.fetch(url, { method: 'GET' });
     if (resp.status === 404) return null;
     if (!resp.ok) throw new Error(`Get failed: ${resp.status}`);
@@ -116,14 +125,14 @@ class R2CompatibleClient {
   }
 
   async delete(key) {
-    const url = `${this.client.endpoint}/${this.bucketName}/${encodeURIComponent(key)}`;
+    const url = `${this.endpoint}/${encodeURIComponent(this.bucketName)}/${encodeS3Key(key)}`;
     const resp = await this.client.fetch(url, { method: 'DELETE' });
     if (resp.status === 404) return;
     if (!resp.ok) throw new Error(`Delete failed: ${resp.status}`);
   }
 
   async head(key) {
-    const url = `${this.client.endpoint}/${this.bucketName}/${encodeURIComponent(key)}`;
+    const url = `${this.endpoint}/${encodeURIComponent(this.bucketName)}/${encodeS3Key(key)}`;
     const resp = await this.client.fetch(url, { method: 'HEAD' });
     if (resp.status === 404) return null;
     if (resp.status === 200) return { size: parseInt(resp.headers.get('Content-Length') || '0') };
@@ -136,12 +145,6 @@ async function getBucketInstance(env, bucketId) {
   const configs = await getBucketsConfig(env);
   const conf = getBucketById(configs, bucketId);
   if (!conf) throw new Error(`Bucket config not found: ${bucketId}`);
-    console.log('Bucket config:', {
-    id: conf.id,
-    endpoint: conf.endpoint,
-    accessKeyId: conf.accessKeyId?.slice(0, 8) + '***',
-    hasSecret: !!conf.secretAccessKey
-  });
   return new R2CompatibleClient(conf);
 }
 
@@ -164,16 +167,16 @@ export default {
     const ADMIN_PWD = env.ADMIN_PWD;
     const ALLOW_ORIGIN = env.ALLOW_ORIGIN || 'https://lkin.cn';
 
-const corsHeaders = {
-  "Access-Control-Allow-Origin": ALLOW_ORIGIN,
-  "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Requested-With",
-  "Access-Control-Allow-Credentials": "true",
-  "Access-Control-Max-Age": "86400",
-  "Vary": "Origin"
-};
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": ALLOW_ORIGIN,
+      "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Requested-With",
+      "Access-Control-Allow-Credentials": "true",
+      "Access-Control-Max-Age": "86400",
+      "Vary": "Origin"
+    };
 
-    // 预检
+    // 预检请求
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
@@ -306,7 +309,7 @@ const corsHeaders = {
         fullKey: item.key,
         size: item.size,
         uploadTime: item.uploaded,
-        url: publicDomain ? `${publicDomain}/${encodeURIComponent(item.key)}` : '',
+        url: publicDomain ? `${publicDomain}/${encodeS3Key(item.key)}` : '',
         downloadUrl: `/download?bucketId=${bucketId}&key=${encodeURIComponent(item.key)}`,
         isFolder: false
       }));
@@ -325,7 +328,7 @@ const corsHeaders = {
       return Response.json({
         code: 200,
         fullKey,
-        url: publicDomain ? `${publicDomain}/${encodeURIComponent(fullKey)}` : ''
+        url: publicDomain ? `${publicDomain}/${encodeS3Key(fullKey)}` : ''
       }, { headers: corsHeaders });
     }
 
