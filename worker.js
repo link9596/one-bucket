@@ -34,7 +34,7 @@ class R2CompatibleClient {
       region: 'auto',
       endpoint: this.endpoint,
     });
-    this.bucketName = config.name;
+    this.bucketName = config.id;
   }
 
   async list({ prefix = '', delimiter = '/' } = {}) {
@@ -462,7 +462,7 @@ if (path === "/rename" && request.method === "POST") {
     if (path === "/usage" && request.method === "GET") {
       const conf = getBucketById(allConfigs, bucketId);
       if (!conf) return Response.json({ code: 404, msg: "桶配置不存在" }, { status: 404, headers: corsHeaders });
-      const usage = await getBucketUsage(conf.accountId, conf.name, conf.apiToken);
+      const usage = await getBucketUsage(conf.accountId, conf.id, conf.apiToken);
       if (usage === null) {
         return Response.json({ code: 500, msg: "获取用量失败，请检查 API Token 权限" }, { status: 500, headers: corsHeaders });
       }
