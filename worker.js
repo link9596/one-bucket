@@ -1,0 +1,451 @@
+// worker.js
+import { AwsClient } from 'aws4fetch';
+import { XMLParser } from 'fast-xml-parser';
+
+// ========== KV 操作辅助 ==========
+async function getBucketsConfig(env) {
+  const data = await env.BUCKET_CONFIG.get('buckets', 'json');
+  return data || [];
+}
+async function saveBucketsConfig(env, config) {
+  await env.BUCKET_CONFIG.put('buckets', JSON.stringify(config));
+}
+function getBucketById(config, id) {
+  return config.find(b => b.id === id);
+}
+
+// ========== 存储客户端封装（兼容原生 R2 接口） ==========
+class R2CompatibleClient {
+  constructor(config) {
+    this.config = config;
+    this.client = new AwsClient({
+      accessKeyId: config.accessKeyId,
+      secretAccessKey: config.secretAccessKey,
+      service: 's3',
+      region: 'auto',
+      endpoint: config.endpoint,
+    });
+    this.bucketName = config.name;
+  }
+
+  async list({ prefix = '', delimiter = '/' } = {}) {
+    const url = `${this.client.endpoint}/${this.bucketName}?list-type=2&prefix=${encodeURIComponent(prefix)}&delimiter=${delimiter}`;
+    const resp = await this.client.fetch(url, { method: 'GET' });
+    if (!resp.ok) throw new Error(`List failed: ${resp.status}`);
+    const text = await resp.text();
+
+    // 使用 fast-xml-parser 解析
+    const parser = new XMLParser({ ignoreAttributes: false, parseTagValue: false });
+    const result = parser.parse(text);
+    const root = result?.ListBucketResult || {};
+
+    const objects = [];
+    const contents = root.Contents || [];
+    if (Array.isArray(contents)) {
+      for (const c of contents) {
+        const key = c.Key || '';
+        const size = parseInt(c.Size || '0');
+        const lastModified = c.LastModified || '';
+        objects.push({ key, size, uploaded: new Date(lastModified) });
+      }
+    } else if (contents.Key) {
+      // 单个对象
+      const key = contents.Key || '';
+      const size = parseInt(contents.Size || '0');
+      const lastModified = contents.LastModified || '';
+      objects.push({ key, size, uploaded: new Date(lastModified) });
+    }
+
+    const delimitedPrefixes = [];
+    const prefixes = root.CommonPrefixes || [];
+    if (Array.isArray(prefixes)) {
+      for (const p of prefixes) {
+        const name = p.Prefix || '';
+        delimitedPrefixes.push(name);
+      }
+    } else if (prefixes.Prefix) {
+      delimitedPrefixes.push(prefixes.Prefix);
+    }
+
+    return { objects, delimitedPrefixes };
+  }
+
+  async put(key, body, { httpMetadata = {} } = {}) {
+    const url = `${this.client.endpoint}/${this.bucketName}/${encodeURIComponent(key)}`;
+    const resp = await this.client.fetch(url, {
+      method: 'PUT',
+      body: body,
+      headers: { 'Content-Type': httpMetadata.contentType || 'application/octet-stream' }
+    });
+    if (!resp.ok) throw new Error(`Put failed: ${resp.status}`);
+  }
+
+  async get(key) {
+    const url = `${this.client.endpoint}/${this.bucketName}/${encodeURIComponent(key)}`;
+    const resp = await this.client.fetch(url, { method: 'GET' });
+    if (resp.status === 404) return null;
+    if (!resp.ok) throw new Error(`Get failed: ${resp.status}`);
+    const body = resp.body;
+    const httpMetadata = { contentType: resp.headers.get('Content-Type') || 'application/octet-stream' };
+    const size = parseInt(resp.headers.get('Content-Length') || '0');
+    const httpEtag = resp.headers.get('ETag') || '';
+    return {
+      body,
+      httpMetadata,
+      size,
+      httpEtag,
+      text: async () => {
+        const reader = body.getReader();
+        const chunks = [];
+        let total = 0;
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+          total += value.length;
+        }
+        const buffer = new Uint8Array(total);
+        let offset = 0;
+        for (const chunk of chunks) {
+          buffer.set(chunk, offset);
+          offset += chunk.length;
+        }
+        return new TextDecoder().decode(buffer);
+      }
+    };
+  }
+
+  async delete(key) {
+    const url = `${this.client.endpoint}/${this.bucketName}/${encodeURIComponent(key)}`;
+    const resp = await this.client.fetch(url, { method: 'DELETE' });
+    if (resp.status === 404) return;
+    if (!resp.ok) throw new Error(`Delete failed: ${resp.status}`);
+  }
+
+  async head(key) {
+    const url = `${this.client.endpoint}/${this.bucketName}/${encodeURIComponent(key)}`;
+    const resp = await this.client.fetch(url, { method: 'HEAD' });
+    if (resp.status === 404) return null;
+    if (resp.status === 200) return { size: parseInt(resp.headers.get('Content-Length') || '0') };
+    throw new Error(`Head failed: ${resp.status}`);
+  }
+}
+
+// ========== 获取桶实例 ==========
+async function getBucketInstance(env, bucketId) {
+  const configs = await getBucketsConfig(env);
+  const conf = getBucketById(configs, bucketId);
+  if (!conf) throw new Error(`Bucket config not found: ${bucketId}`);
+  return new R2CompatibleClient(conf);
+}
+
+// ========== 获取桶用量 ==========
+async function getBucketUsage(accountId, bucketName, apiToken) {
+  if (!apiToken) return null;
+  const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/r2/buckets/${bucketName}/usage`;
+  const resp = await fetch(url, {
+    headers: { 'Authorization': `Bearer ${apiToken}` }
+  });
+  if (!resp.ok) return null;
+  const json = await resp.json();
+  return json.result?.payloadSize || null;
+}
+
+// ========== Worker 主函数 ==========
+export default {
+  async fetch(request, env) {
+    // ---------- 从环境变量读取配置 ----------
+    const ADMIN_PWD = env.ADMIN_PWD;
+    const ALLOW_ORIGIN = env.ALLOW_ORIGIN || 'https://lkin.cn';
+
+const corsHeaders = {
+  "Access-Control-Allow-Origin": ALLOW_ORIGIN,
+  "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type,Authorization,X-Requested-With",
+  "Access-Control-Allow-Credentials": "true",
+  "Access-Control-Max-Age": "86400",
+  "Vary": "Origin"
+};
+
+    // 预检
+    if (request.method === "OPTIONS") {
+      return new Response(null, { status: 204, headers: corsHeaders });
+    }
+
+    const url = new URL(request.url);
+    const path = url.pathname;
+
+    // ---------- 辅助函数：获取 token（Cookie 或 Header） ----------
+    const getToken = () => {
+      const cookie = request.headers.get('Cookie') || '';
+      const cookieToken = cookie.match(/token=([^;]+)/)?.[1];
+      if (cookieToken) return cookieToken;
+      const auth = request.headers.get('Authorization');
+      if (auth && auth.startsWith('Bearer ')) return auth.slice(7);
+      return null;
+    };
+
+    // ---------- 登录 ----------
+    if (path === "/login" && request.method === "POST") {
+      const { pwd } = await request.json();
+      if (pwd !== ADMIN_PWD) {
+        return Response.json({ code: 401, msg: "密码错误" }, { status: 401, headers: corsHeaders });
+      }
+      const token = crypto.randomUUID();
+      await env.SESSION_KV.put(token, "valid", { expirationTtl: 604800 });
+      const cookie = `token=${token}; HttpOnly; Secure; SameSite=Strict; Max-Age=604800; Path=/`;
+      return new Response(JSON.stringify({ code: 200, msg: "登录成功" }), {
+        headers: { ...corsHeaders, 'Set-Cookie': cookie }
+      });
+    }
+
+    // ---------- 登出 ----------
+    if (path === "/logout" && request.method === "POST") {
+      const token = getToken();
+      if (token) await env.SESSION_KV.delete(token);
+      return new Response(JSON.stringify({ code: 200, msg: "已登出" }), {
+        headers: {
+          ...corsHeaders,
+          'Set-Cookie': 'token=; Max-Age=0; Path=/; HttpOnly; Secure; SameSite=Strict'
+        }
+      });
+    }
+
+    // ---------- 全局鉴权 ----------
+    if (path !== "/login" && path !== "/logout") {
+      const token = getToken();
+      if (!token) {
+        return Response.json({ code: 401, msg: "未授权" }, { status: 401, headers: corsHeaders });
+      }
+      const isValid = await env.SESSION_KV.get(token);
+      if (!isValid) {
+        return Response.json({ code: 401, msg: "token 无效或已过期" }, { status: 401, headers: corsHeaders });
+      }
+    }
+
+    // ========== 配置管理接口 ==========
+    if (path === "/admin/buckets" && request.method === "GET") {
+      const configs = await getBucketsConfig(env);
+      const safe = configs.map(c => ({
+        id: c.id,
+        name: c.name,
+        accountId: c.accountId,
+        endpoint: c.endpoint,
+        accessKeyId: c.accessKeyId,
+        hasSecret: !!c.secretAccessKey,
+        hasToken: !!c.apiToken,
+        publicDomain: c.publicDomain || ''
+      }));
+      return Response.json({ code: 200, data: safe }, { headers: corsHeaders });
+    }
+
+    if (path === "/admin/buckets" && request.method === "POST") {
+      const body = await request.json();
+      const newConfigs = body.data || [];
+      const oldConfigs = await getBucketsConfig(env);
+      const merged = newConfigs.map(newItem => {
+        const oldItem = oldConfigs.find(o => o.id === newItem.id);
+        return {
+          id: newItem.id,
+          name: newItem.name,
+          accountId: newItem.accountId,
+          endpoint: newItem.endpoint,
+          accessKeyId: newItem.accessKeyId,
+          secretAccessKey: newItem.secretAccessKey || oldItem?.secretAccessKey || '',
+          apiToken: newItem.apiToken || oldItem?.apiToken || '',
+          publicDomain: newItem.publicDomain || oldItem?.publicDomain || ''
+        };
+      });
+      for (const c of merged) {
+        if (!c.id || !c.name || !c.endpoint || !c.accessKeyId || !c.secretAccessKey) {
+          return Response.json({ code: 400, msg: "配置不完整" }, { status: 400, headers: corsHeaders });
+        }
+      }
+      await saveBucketsConfig(env, merged);
+      return Response.json({ code: 200, msg: "配置已更新" }, { headers: corsHeaders });
+    }
+
+    // ========== 业务接口 ==========
+    const bucketId = url.searchParams.get('bucketId');
+    if (!bucketId) {
+      return Response.json({ code: 400, msg: "缺少 bucketId 参数" }, { status: 400, headers: corsHeaders });
+    }
+
+    let bucket;
+    try {
+      bucket = await getBucketInstance(env, bucketId);
+    } catch (e) {
+      return Response.json({ code: 404, msg: e.message }, { status: 404, headers: corsHeaders });
+    }
+
+    const allConfigs = await getBucketsConfig(env);
+    const bucketConf = getBucketById(allConfigs, bucketId);
+
+    // ---------- 新建文件夹 ----------
+    if (path === "/mkdir" && request.method === "POST") {
+      let folderPath = decodeURIComponent(url.searchParams.get("path") || "");
+      if (!folderPath.endsWith("/")) folderPath += "/";
+      await bucket.put(folderPath, "", { httpMetadata: { contentType: "application/folder" } });
+      return Response.json({ code: 200, msg: "文件夹创建成功" }, { headers: corsHeaders });
+    }
+
+    // ---------- 获取文件列表 ----------
+    if (path === "/list" && request.method === "GET") {
+      const curPath = decodeURIComponent(url.searchParams.get("path") || "");
+      const res = await bucket.list({ prefix: curPath, delimiter: "/" });
+      const folders = res.delimitedPrefixes.map(p => ({ name: p, isFolder: true, path: p, url: "" }));
+      const publicDomain = bucketConf?.publicDomain || '';
+      const files = res.objects.map(item => ({
+        name: item.key.replace(curPath, ""),
+        fullKey: item.key,
+        size: item.size,
+        uploadTime: item.uploaded,
+        url: publicDomain ? `${publicDomain}/${encodeURIComponent(item.key)}` : '',
+        downloadUrl: `/download?bucketId=${bucketId}&key=${encodeURIComponent(item.key)}`,
+        isFolder: false
+      }));
+      return Response.json({ code: 200, curPath, folders, files }, { headers: corsHeaders });
+    }
+
+    // ---------- 上传文件 ----------
+    if (path === "/upload" && request.method === "POST") {
+      const curPath = decodeURIComponent(url.searchParams.get("path") || "");
+      const formData = await request.formData();
+      const file = formData.get("file");
+      if (!file) return Response.json({ code: 400, msg: "无文件" }, { headers: corsHeaders });
+      const fullKey = curPath + file.name;
+      await bucket.put(fullKey, file.stream(), { httpMetadata: { contentType: file.type } });
+      const publicDomain = bucketConf?.publicDomain || '';
+      return Response.json({
+        code: 200,
+        fullKey,
+        url: publicDomain ? `${publicDomain}/${encodeURIComponent(fullKey)}` : ''
+      }, { headers: corsHeaders });
+    }
+
+    // ---------- 删除 ----------
+    if (path === "/del" && request.method === "DELETE") {
+      const fullKey = decodeURIComponent(url.searchParams.get("key"));
+      if (!fullKey) return Response.json({ code: 400, msg: "缺少路径" }, { headers: corsHeaders });
+      await bucket.delete(fullKey);
+      return Response.json({ code: 200, msg: "删除成功" }, { headers: corsHeaders });
+    }
+
+    // ---------- 下载 ----------
+    if (path === "/download" && request.method === "GET") {
+      const fullKey = decodeURIComponent(url.searchParams.get("key") || "");
+      if (!fullKey) return Response.json({ code: 400, msg: "缺少文件路径" }, { status: 400, headers: corsHeaders });
+      const object = await bucket.get(fullKey);
+      if (!object) return Response.json({ code: 404, msg: "文件不存在" }, { status: 404, headers: corsHeaders });
+      const fileName = fullKey.split("/").pop() || "download";
+      const asciiFileName = fileName.replace(/[^\x20-\x7E]/g, '_');
+      const contentDisposition = `attachment; filename="${asciiFileName}"; filename*=UTF-8''${encodeURIComponent(fileName)}`;
+      const headers = {
+        ...corsHeaders,
+        "Content-Type": object.httpMetadata?.contentType || "application/octet-stream",
+        "Content-Disposition": contentDisposition,
+        "Content-Length": String(object.size),
+        "ETag": object.httpEtag || '',
+      };
+      return new Response(object.body, { headers });
+    }
+
+    // ---------- 读取文本 ----------
+    if (path === "/read" && request.method === "GET") {
+      const fullKey = decodeURIComponent(url.searchParams.get("key") || "");
+      if (!fullKey) return Response.json({ code: 400, msg: "缺少文件路径" }, { status: 400, headers: corsHeaders });
+      const object = await bucket.get(fullKey);
+      if (!object) return Response.json({ code: 404, msg: "文件不存在" }, { status: 404, headers: corsHeaders });
+      if (object.size > 2 * 1024 * 1024) return Response.json({ code: 413, msg: "文件过大，无法在线编辑" }, { status: 413, headers: corsHeaders });
+      const text = await object.text();
+      return Response.json({ code: 200, content: text }, { headers: corsHeaders });
+    }
+
+    // ---------- 写入文本 ----------
+    if (path === "/write" && request.method === "PUT") {
+      const fullKey = decodeURIComponent(url.searchParams.get("key") || "");
+      if (!fullKey) return Response.json({ code: 400, msg: "缺少文件路径" }, { status: 400, headers: corsHeaders });
+      const { content } = await request.json();
+      if (typeof content !== "string") return Response.json({ code: 400, msg: "内容格式错误" }, { status: 400, headers: corsHeaders });
+      if (new TextEncoder().encode(content).length > 2 * 1024 * 1024) return Response.json({ code: 413, msg: "内容过大，无法保存" }, { status: 413, headers: corsHeaders });
+
+      const ext = fullKey.split('.').pop().toLowerCase();
+      const mimeTypes = {
+        'html': 'text/html; charset=utf-8',
+        'htm': 'text/html; charset=utf-8',
+        'css': 'text/css; charset=utf-8',
+        'js': 'application/javascript; charset=utf-8',
+        'mjs': 'application/javascript; charset=utf-8',
+        'json': 'application/json; charset=utf-8',
+        'txt': 'text/plain; charset=utf-8',
+        'md': 'text/markdown; charset=utf-8',
+        'xml': 'application/xml; charset=utf-8',
+        'svg': 'image/svg+xml; charset=utf-8',
+        'csv': 'text/csv; charset=utf-8',
+        'yml': 'text/yaml; charset=utf-8',
+        'yaml': 'text/yaml; charset=utf-8',
+        'log': 'text/plain; charset=utf-8',
+        'ini': 'text/plain; charset=utf-8',
+        'conf': 'text/plain; charset=utf-8',
+      };
+      const contentType = mimeTypes[ext] || 'text/plain; charset=utf-8';
+      await bucket.put(fullKey, content, { httpMetadata: { contentType } });
+      return Response.json({ code: 200, msg: "保存成功" }, { headers: corsHeaders });
+    }
+
+    // ---------- 重命名 ----------
+    if (path === "/rename" && request.method === "POST") {
+      const oldKey = decodeURIComponent(url.searchParams.get("oldKey") || "");
+      const newName = decodeURIComponent(url.searchParams.get("newName") || "");
+      if (!oldKey || !newName) return Response.json({ code: 400, msg: "缺少参数" }, { status: 400, headers: corsHeaders });
+      if (newName.includes("/")) return Response.json({ code: 400, msg: "新名称不能包含 /" }, { status: 400, headers: corsHeaders });
+
+      const lastSlashIndex = oldKey.lastIndexOf("/");
+      const dirPath = lastSlashIndex >= 0 ? oldKey.substring(0, lastSlashIndex + 1) : "";
+      const newKey = dirPath + newName;
+
+      const existing = await bucket.head(newKey);
+      if (existing) return Response.json({ code: 409, msg: "目标名称已存在" }, { status: 409, headers: corsHeaders });
+
+      const isFolder = oldKey.endsWith("/");
+
+      if (!isFolder) {
+        const object = await bucket.get(oldKey);
+        if (!object) return Response.json({ code: 404, msg: "原文件不存在" }, { status: 404, headers: corsHeaders });
+        if (object.size > 100 * 1024 * 1024) return Response.json({ code: 413, msg: "文件过大，暂不支持重命名" }, { status: 413, headers: corsHeaders });
+        await bucket.put(newKey, object.body, { httpMetadata: object.httpMetadata });
+        await bucket.delete(oldKey);
+        return Response.json({ code: 200, msg: "重命名成功", newKey }, { headers: corsHeaders });
+      } else {
+        const listResult = await bucket.list({ prefix: oldKey });
+        if (listResult.objects.length === 0) return Response.json({ code: 404, msg: "原文件夹不存在或为空" }, { status: 404, headers: corsHeaders });
+        if (listResult.objects.length > 1000) return Response.json({ code: 413, msg: "文件夹内文件过多，暂不支持重命名" }, { status: 413, headers: corsHeaders });
+
+        for (const obj of listResult.objects) {
+          const oldObjKey = obj.key;
+          const relativePart = oldObjKey.substring(oldKey.length);
+          const newObjKey = newKey + relativePart;
+          const object = await bucket.get(oldObjKey);
+          if (object) await bucket.put(newObjKey, object.body, { httpMetadata: object.httpMetadata });
+        }
+        for (const obj of listResult.objects) {
+          await bucket.delete(obj.key);
+        }
+        return Response.json({ code: 200, msg: "文件夹重命名成功", newKey }, { headers: corsHeaders });
+      }
+    }
+
+    // ---------- 获取桶用量 ----------
+    if (path === "/usage" && request.method === "GET") {
+      const conf = getBucketById(allConfigs, bucketId);
+      if (!conf) return Response.json({ code: 404, msg: "桶配置不存在" }, { status: 404, headers: corsHeaders });
+      const usage = await getBucketUsage(conf.accountId, conf.name, conf.apiToken);
+      if (usage === null) {
+        return Response.json({ code: 500, msg: "获取用量失败，请检查 API Token 权限" }, { status: 500, headers: corsHeaders });
+      }
+      return Response.json({ code: 200, size: usage }, { headers: corsHeaders });
+    }
+
+    return Response.json({ msg: "接口不存在" }, { status: 404, headers: corsHeaders });
+  }
+};
