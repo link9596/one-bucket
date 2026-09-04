@@ -16,16 +16,80 @@ function getBucketById(config, id) {
   return config.find(b => b.id === id);
 }
 
-// 安全编码 S3 对象键：按 '/' 分割，每段 encodeURIComponent，再拼接
+// ========== 密码哈希管理 ==========
+async function getAdminPwdHash(env) {
+  return await env.BUCKET_CONFIG.get('admin_pwd_hash');
+}
+
+async function setAdminPwdHash(env, hash) {
+  await env.BUCKET_CONFIG.put('admin_pwd_hash', hash);
+}
+
+async function hashPassword(pwd) {
+  const data = new TextEncoder().encode(pwd);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  return Array.from(new Uint8Array(hashBuffer))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
+}
+
+// ========== 登录历史管理 ==========
+const LOGIN_HISTORY_KEY = 'login_history';
+const MAX_HISTORY = 25;
+
+async function addLoginHistory(env, info) {
+  const raw = await env.SESSION_KV.get(LOGIN_HISTORY_KEY, 'json');
+  let history = raw || [];
+  history.unshift(info);
+  if (history.length > MAX_HISTORY) history = history.slice(0, MAX_HISTORY);
+  await env.SESSION_KV.put(LOGIN_HISTORY_KEY, JSON.stringify(history));
+}
+
+async function getLoginHistory(env) {
+  const raw = await env.SESSION_KV.get(LOGIN_HISTORY_KEY, 'json');
+  return raw || [];
+}
+
+async function deleteLoginHistory(env, historyId) {
+  const history = await getLoginHistory(env);
+  const target = history.find(item => item.id === historyId);
+  if (!target) return false;
+  // 删除对应会话 token
+  if (target.token) {
+    await env.SESSION_KV.delete(target.token);
+  }
+  // 从历史中移除
+  const newHistory = history.filter(item => item.id !== historyId);
+  await env.SESSION_KV.put(LOGIN_HISTORY_KEY, JSON.stringify(newHistory));
+  return true;
+}
+
+// 清除所有会话（修改密码时调用）
+async function revokeAllSessions(env) {
+  let cursor;
+  const keysToDelete = [];
+  do {
+    const listResult = await env.SESSION_KV.list({ cursor });
+    keysToDelete.push(...listResult.keys.map(k => k.name));
+    cursor = listResult.cursor;
+  } while (cursor);
+  if (keysToDelete.length > 0) {
+    await Promise.all(keysToDelete.map(key => env.SESSION_KV.delete(key)));
+  }
+  // 同时清空登录历史
+  await env.SESSION_KV.put(LOGIN_HISTORY_KEY, JSON.stringify([]));
+  return keysToDelete.length;
+}
+
+// 安全编码 S3 对象键
 function encodeS3Key(key) {
   return key.split('/').map(segment => encodeURIComponent(segment)).join('/');
 }
 
-// ========== 存储客户端封装（兼容原生 R2 接口） ==========
+// ========== 存储客户端封装 ==========
 class R2CompatibleClient {
   constructor(config) {
     this.config = config;
-    // 保存 endpoint，并移除末尾可能存在的斜杠
     this.endpoint = config.endpoint.replace(/\/$/, '');
     this.client = new AwsClient({
       accessKeyId: config.accessKeyId,
@@ -34,7 +98,7 @@ class R2CompatibleClient {
       region: 'auto',
       endpoint: this.endpoint,
     });
-    this.bucketName = config.id;
+    this.bucketName = config.id; // 使用 id 作为真实桶名
   }
 
   async list({ prefix = '', delimiter = '/' } = {}) {
@@ -42,12 +106,9 @@ class R2CompatibleClient {
     const resp = await this.client.fetch(url, { method: 'GET' });
     if (!resp.ok) throw new Error(`List failed: ${resp.status}`);
     const text = await resp.text();
-
-    // 解析 XML
     const parser = new XMLParser({ ignoreAttributes: false, parseTagValue: false });
     const result = parser.parse(text);
     const root = result?.ListBucketResult || {};
-
     const objects = [];
     const contents = root.Contents || [];
     if (Array.isArray(contents)) {
@@ -58,13 +119,11 @@ class R2CompatibleClient {
         objects.push({ key, size, uploaded: new Date(lastModified) });
       }
     } else if (contents.Key) {
-      // 单个对象
       const key = contents.Key || '';
       const size = parseInt(contents.Size || '0');
       const lastModified = contents.LastModified || '';
       objects.push({ key, size, uploaded: new Date(lastModified) });
     }
-
     const delimitedPrefixes = [];
     const prefixes = root.CommonPrefixes || [];
     if (Array.isArray(prefixes)) {
@@ -75,7 +134,6 @@ class R2CompatibleClient {
     } else if (prefixes.Prefix) {
       delimitedPrefixes.push(prefixes.Prefix);
     }
-
     return { objects, delimitedPrefixes };
   }
 
@@ -163,10 +221,8 @@ async function getBucketUsage(accountId, bucketName, apiToken) {
 // ========== Worker 主函数 ==========
 export default {
   async fetch(request, env) {
-    // ---------- 从环境变量读取配置 ----------
-    const ADMIN_PWD = env.ADMIN_PWD;
+    // CORS 配置
     const ALLOW_ORIGIN = env.ALLOW_ORIGIN || 'https://lkin.cn';
-
     const corsHeaders = {
       "Access-Control-Allow-Origin": ALLOW_ORIGIN,
       "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
@@ -176,7 +232,6 @@ export default {
       "Vary": "Origin"
     };
 
-    // 预检请求
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
@@ -184,7 +239,6 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
 
-    // ---------- 辅助函数：获取 token（Cookie 或 Header） ----------
     const getToken = () => {
       const cookie = request.headers.get('Cookie') || '';
       const cookieToken = cookie.match(/token=([^;]+)/)?.[1];
@@ -197,12 +251,31 @@ export default {
     // ---------- 登录 ----------
     if (path === "/login" && request.method === "POST") {
       const { pwd } = await request.json();
-      if (pwd !== ADMIN_PWD) {
+      if (!pwd) {
+        return Response.json({ code: 400, msg: "请输入密码" }, { status: 400, headers: corsHeaders });
+      }
+      const storedHash = await getAdminPwdHash(env);
+      if (!storedHash) {
+        return Response.json({ code: 503, msg: "管理员密码尚未设置，请通过修改密码接口初始化" }, { status: 503, headers: corsHeaders });
+      }
+      const inputHash = await hashPassword(pwd);
+      if (inputHash !== storedHash) {
         return Response.json({ code: 401, msg: "密码错误" }, { status: 401, headers: corsHeaders });
       }
       const token = crypto.randomUUID();
       await env.SESSION_KV.put(token, "valid", { expirationTtl: 604800 });
       const cookie = `token=${token}; HttpOnly; Secure; SameSite=Strict; Max-Age=604800; Path=/`;
+
+      // 记录登录历史
+      const historyRecord = {
+        id: crypto.randomUUID(),
+        time: new Date().toISOString(),
+        ua: request.headers.get('User-Agent') || '',
+        ip: request.headers.get('CF-Connecting-IP') || '',
+        token: token // 存储完整 token，前端不显示
+      };
+      await addLoginHistory(env, historyRecord);
+
       return new Response(JSON.stringify({ code: 200, msg: "登录成功" }), {
         headers: { ...corsHeaders, 'Set-Cookie': cookie }
       });
@@ -220,8 +293,30 @@ export default {
       });
     }
 
-    // ---------- 全局鉴权 ----------
-    if (path !== "/login" && path !== "/logout") {
+    // ---------- 修改密码（含初始化） ----------
+    if (path === "/admin/change-password" && request.method === "POST") {
+      const { oldPwd, newPwd } = await request.json();
+      if (!newPwd || newPwd.length < 6) {
+        return Response.json({ code: 400, msg: "新密码长度至少6位" }, { status: 400, headers: corsHeaders });
+      }
+      const storedHash = await getAdminPwdHash(env);
+      if (storedHash) {
+        if (!oldPwd) {
+          return Response.json({ code: 400, msg: "请输入旧密码" }, { status: 400, headers: corsHeaders });
+        }
+        const oldHash = await hashPassword(oldPwd);
+        if (oldHash !== storedHash) {
+          return Response.json({ code: 401, msg: "旧密码错误" }, { status: 401, headers: corsHeaders });
+        }
+      }
+      const newHash = await hashPassword(newPwd);
+      await setAdminPwdHash(env, newHash);
+      const deletedCount = await revokeAllSessions(env);
+      return Response.json({ code: 200, msg: `密码已修改，已注销 ${deletedCount} 个会话` }, { headers: corsHeaders });
+    }
+
+    // ---------- 全局鉴权（修改密码接口需要在验证旧密码后清除会话，因此不在此处拦截） ----------
+    if (path !== "/login" && path !== "/logout" && path !== "/admin/change-password") {
       const token = getToken();
       if (!token) {
         return Response.json({ code: 401, msg: "未授权" }, { status: 401, headers: corsHeaders });
@@ -230,6 +325,31 @@ export default {
       if (!isValid) {
         return Response.json({ code: 401, msg: "token 无效或已过期" }, { status: 401, headers: corsHeaders });
       }
+    }
+
+    // ========== 登录历史管理（需鉴权） ==========
+    if (path === "/admin/login-history" && request.method === "GET") {
+      const history = await getLoginHistory(env);
+      // 返回不包含 token 的数组
+      const safeHistory = history.map(item => ({
+        id: item.id,
+        time: item.time,
+        ua: item.ua,
+        ip: item.ip
+      }));
+      return Response.json({ code: 200, data: safeHistory }, { headers: corsHeaders });
+    }
+
+    if (path === "/admin/delete-login-history" && request.method === "POST") {
+      const { id } = await request.json();
+      if (!id) {
+        return Response.json({ code: 400, msg: "缺少记录ID" }, { status: 400, headers: corsHeaders });
+      }
+      const success = await deleteLoginHistory(env, id);
+      if (!success) {
+        return Response.json({ code: 404, msg: "记录不存在" }, { status: 404, headers: corsHeaders });
+      }
+      return Response.json({ code: 200, msg: "已删除该登录会话，对应设备需要重新登录" }, { headers: corsHeaders });
     }
 
     // ========== 配置管理接口 ==========
@@ -290,7 +410,6 @@ export default {
     const allConfigs = await getBucketsConfig(env);
     const bucketConf = getBucketById(allConfigs, bucketId);
 
-    // ---------- 新建文件夹 ----------
     if (path === "/mkdir" && request.method === "POST") {
       let folderPath = decodeURIComponent(url.searchParams.get("path") || "");
       if (!folderPath.endsWith("/")) folderPath += "/";
@@ -298,7 +417,6 @@ export default {
       return Response.json({ code: 200, msg: "文件夹创建成功" }, { headers: corsHeaders });
     }
 
-    // ---------- 获取文件列表 ----------
     if (path === "/list" && request.method === "GET") {
       const curPath = decodeURIComponent(url.searchParams.get("path") || "");
       const res = await bucket.list({ prefix: curPath, delimiter: "/" });
@@ -316,7 +434,6 @@ export default {
       return Response.json({ code: 200, curPath, folders, files }, { headers: corsHeaders });
     }
 
-    // ---------- 上传文件 ----------
     if (path === "/upload" && request.method === "POST") {
       const curPath = decodeURIComponent(url.searchParams.get("path") || "");
       const formData = await request.formData();
@@ -332,7 +449,6 @@ export default {
       }, { headers: corsHeaders });
     }
 
-    // ---------- 删除 ----------
     if (path === "/del" && request.method === "DELETE") {
       const fullKey = decodeURIComponent(url.searchParams.get("key"));
       if (!fullKey) return Response.json({ code: 400, msg: "缺少路径" }, { headers: corsHeaders });
@@ -340,7 +456,6 @@ export default {
       return Response.json({ code: 200, msg: "删除成功" }, { headers: corsHeaders });
     }
 
-    // ---------- 下载 ----------
     if (path === "/download" && request.method === "GET") {
       const fullKey = decodeURIComponent(url.searchParams.get("key") || "");
       if (!fullKey) return Response.json({ code: 400, msg: "缺少文件路径" }, { status: 400, headers: corsHeaders });
@@ -359,7 +474,6 @@ export default {
       return new Response(object.body, { headers });
     }
 
-    // ---------- 读取文本 ----------
     if (path === "/read" && request.method === "GET") {
       const fullKey = decodeURIComponent(url.searchParams.get("key") || "");
       if (!fullKey) return Response.json({ code: 400, msg: "缺少文件路径" }, { status: 400, headers: corsHeaders });
@@ -370,7 +484,6 @@ export default {
       return Response.json({ code: 200, content: text }, { headers: corsHeaders });
     }
 
-    // ---------- 写入文本 ----------
     if (path === "/write" && request.method === "PUT") {
       const fullKey = decodeURIComponent(url.searchParams.get("key") || "");
       if (!fullKey) return Response.json({ code: 400, msg: "缺少文件路径" }, { status: 400, headers: corsHeaders });
@@ -402,63 +515,54 @@ export default {
       return Response.json({ code: 200, msg: "保存成功" }, { headers: corsHeaders });
     }
 
-    // ---------- 重命名 ----------
-if (path === "/rename" && request.method === "POST") {
-  const oldKey = decodeURIComponent(url.searchParams.get("oldKey") || "");
-  const newName = decodeURIComponent(url.searchParams.get("newName") || "");
-  if (!oldKey || !newName) return Response.json({ code: 400, msg: "缺少参数" }, { status: 400, headers: corsHeaders });
-  if (newName.includes("/")) return Response.json({ code: 400, msg: "新名称不能包含 /" }, { status: 400, headers: corsHeaders });
+    if (path === "/rename" && request.method === "POST") {
+      const oldKey = decodeURIComponent(url.searchParams.get("oldKey") || "");
+      const newName = decodeURIComponent(url.searchParams.get("newName") || "");
+      if (!oldKey || !newName) return Response.json({ code: 400, msg: "缺少参数" }, { status: 400, headers: corsHeaders });
+      if (newName.includes("/")) return Response.json({ code: 400, msg: "新名称不能包含 /" }, { status: 400, headers: corsHeaders });
 
-  const isFolder = oldKey.endsWith("/");
+      const isFolder = oldKey.endsWith("/");
+      let newKey;
+      if (isFolder) {
+        const folderPath = oldKey.slice(0, -1);
+        const lastSlash = folderPath.lastIndexOf("/");
+        const parentDir = lastSlash >= 0 ? folderPath.substring(0, lastSlash + 1) : "";
+        newKey = parentDir + newName + "/";
+      } else {
+        const lastSlash = oldKey.lastIndexOf("/");
+        const dirPath = lastSlash >= 0 ? oldKey.substring(0, lastSlash + 1) : "";
+        newKey = dirPath + newName;
+      }
 
-  // ---- 正确计算新路径 ----
-  let newKey;
-  if (isFolder) {
-    // 去掉末尾斜杠，找到父目录
-    const folderPath = oldKey.slice(0, -1); // 例如 "a/b"
-    const lastSlash = folderPath.lastIndexOf("/");
-    const parentDir = lastSlash >= 0 ? folderPath.substring(0, lastSlash + 1) : ""; // "a/"
-    newKey = parentDir + newName + "/"; // "a/新名称/"
-  } else {
-    // 文件：替换最后一个斜杠后的文件名
-    const lastSlash = oldKey.lastIndexOf("/");
-    const dirPath = lastSlash >= 0 ? oldKey.substring(0, lastSlash + 1) : "";
-    newKey = dirPath + newName;
-  }
+      const existing = await bucket.head(newKey);
+      if (existing) return Response.json({ code: 409, msg: "目标名称已存在" }, { status: 409, headers: corsHeaders });
 
-  // 检查目标是否已存在
-  const existing = await bucket.head(newKey);
-  if (existing) return Response.json({ code: 409, msg: "目标名称已存在" }, { status: 409, headers: corsHeaders });
+      if (!isFolder) {
+        const object = await bucket.get(oldKey);
+        if (!object) return Response.json({ code: 404, msg: "原文件不存在" }, { status: 404, headers: corsHeaders });
+        if (object.size > 100 * 1024 * 1024) return Response.json({ code: 413, msg: "文件过大，暂不支持重命名" }, { status: 413, headers: corsHeaders });
+        await bucket.put(newKey, object.body, { httpMetadata: object.httpMetadata });
+        await bucket.delete(oldKey);
+        return Response.json({ code: 200, msg: "重命名成功", newKey }, { headers: corsHeaders });
+      } else {
+        const listResult = await bucket.list({ prefix: oldKey });
+        if (listResult.objects.length === 0) return Response.json({ code: 404, msg: "原文件夹不存在或为空" }, { status: 404, headers: corsHeaders });
+        if (listResult.objects.length > 1000) return Response.json({ code: 413, msg: "文件夹内文件过多，暂不支持重命名" }, { status: 413, headers: corsHeaders });
 
-  if (!isFolder) {
-    // 文件重命名（原逻辑不变）
-    const object = await bucket.get(oldKey);
-    if (!object) return Response.json({ code: 404, msg: "原文件不存在" }, { status: 404, headers: corsHeaders });
-    if (object.size > 100 * 1024 * 1024) return Response.json({ code: 413, msg: "文件过大，暂不支持重命名" }, { status: 413, headers: corsHeaders });
-    await bucket.put(newKey, object.body, { httpMetadata: object.httpMetadata });
-    await bucket.delete(oldKey);
-    return Response.json({ code: 200, msg: "重命名成功", newKey }, { headers: corsHeaders });
-  } else {
-    // 文件夹重命名：复制所有对象到新路径，再删除旧对象
-    const listResult = await bucket.list({ prefix: oldKey });
-    if (listResult.objects.length === 0) return Response.json({ code: 404, msg: "原文件夹不存在或为空" }, { status: 404, headers: corsHeaders });
-    if (listResult.objects.length > 1000) return Response.json({ code: 413, msg: "文件夹内文件过多，暂不支持重命名" }, { status: 413, headers: corsHeaders });
-
-    for (const obj of listResult.objects) {
-      const oldObjKey = obj.key;
-      const relativePart = oldObjKey.substring(oldKey.length);
-      const newObjKey = newKey + relativePart;
-      const object = await bucket.get(oldObjKey);
-      if (object) await bucket.put(newObjKey, object.body, { httpMetadata: object.httpMetadata });
+        for (const obj of listResult.objects) {
+          const oldObjKey = obj.key;
+          const relativePart = oldObjKey.substring(oldKey.length);
+          const newObjKey = newKey + relativePart;
+          const object = await bucket.get(oldObjKey);
+          if (object) await bucket.put(newObjKey, object.body, { httpMetadata: object.httpMetadata });
+        }
+        for (const obj of listResult.objects) {
+          await bucket.delete(obj.key);
+        }
+        return Response.json({ code: 200, msg: "文件夹重命名成功", newKey }, { headers: corsHeaders });
+      }
     }
-    for (const obj of listResult.objects) {
-      await bucket.delete(obj.key);
-    }
-    return Response.json({ code: 200, msg: "文件夹重命名成功", newKey }, { headers: corsHeaders });
-  }
-}
 
-    // ---------- 获取桶用量 ----------
     if (path === "/usage" && request.method === "GET") {
       const conf = getBucketById(allConfigs, bucketId);
       if (!conf) return Response.json({ code: 404, msg: "桶配置不存在" }, { status: 404, headers: corsHeaders });
