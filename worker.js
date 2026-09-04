@@ -1,4 +1,3 @@
-// worker.js — 安全加固版（仅加密 secretAccessKey 和 apiToken，accessKeyId 明文）
 import { AwsClient } from 'aws4fetch';
 import { XMLParser } from 'fast-xml-parser';
 
@@ -436,6 +435,24 @@ class R2CompatibleClient {
     if (resp.status === 200) return { size: parseInt(resp.headers.get('Content-Length') || '0') };
     throw new Error(`Head failed: ${resp.status}`);
   }
+
+  // 新增：递归删除文件夹
+  async deleteFolder(prefix) {
+    // 确保 prefix 以 '/' 结尾
+    if (!prefix.endsWith('/')) prefix += '/';
+    
+    // 列出所有前缀为该 prefix 的对象（不含 delimiter，递归所有子对象）
+    const listResult = await this.list({ prefix, delimiter: '' });
+    const objects = listResult.objects;
+    
+    // 逐个删除对象
+    for (const obj of objects) {
+      await this.delete(obj.key);
+    }
+    
+    // 删除文件夹占位对象（如果存在）
+    await this.delete(prefix);
+  }
 }
 
 // ==================== 实例工厂 ====================
@@ -498,6 +515,7 @@ export default {
       '/upload': ['POST'],
       '/mkdir': ['POST'],
       '/del': ['DELETE'],
+      '/del-batch': ['POST'],   // 新增批量删除
       '/download': ['GET'],
       '/read': ['GET'],
       '/write': ['PUT'],
@@ -842,11 +860,53 @@ export default {
       });
     }
 
+    // ---- 删除单个文件或文件夹（递归删除文件夹） ----
     if (path === "/del" && method === "DELETE") {
       const fullKey = decodeURIComponent(url.searchParams.get("key"));
       if (!fullKey) return Response.json({ code: 400, msg: "缺少路径" }, { status: 400 });
-      await bucket.delete(fullKey);
+      
+      if (fullKey.endsWith('/')) {
+        // 文件夹递归删除
+        await bucket.deleteFolder(fullKey);
+      } else {
+        await bucket.delete(fullKey);
+      }
+      
       return Response.json({ code: 200, msg: "删除成功" }, {
+        headers: { 'Content-Type': 'application/json;charset=utf-8' }
+      });
+    }
+
+    // ---- 批量删除 ----
+    if (path === "/del-batch" && method === "POST") {
+      const body = await request.json();
+      const keys = body.keys;
+      if (!Array.isArray(keys) || keys.length === 0) {
+        return Response.json({ code: 400, msg: "缺少 keys 数组" }, { status: 400 });
+      }
+      
+      let deletedCount = 0;
+      const errors = [];
+      
+      for (const key of keys) {
+        try {
+          if (key.endsWith('/')) {
+            await bucket.deleteFolder(key);
+          } else {
+            await bucket.delete(key);
+          }
+          deletedCount++;
+        } catch (e) {
+          errors.push({ key, error: e.message });
+        }
+      }
+      
+      return Response.json({
+        code: 200,
+        deletedCount,
+        errors: errors.length > 0 ? errors : undefined,
+        msg: `成功删除 ${deletedCount} 项`
+      }, {
         headers: { 'Content-Type': 'application/json;charset=utf-8' }
       });
     }
