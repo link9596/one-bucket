@@ -1,21 +1,14 @@
 # ========== Worker 基础配置 ==========
-name = "one-bucket"          # 你的 Worker 名称
-main = "worker.js"                        # 入口文件
+name = "one-bucket"
+main = "worker.js"
 compatibility_date = "2025-01-01"
 
 # ========== KV 命名空间绑定 ==========
-# 请将 "your-session-kv-id" 和 "your-bucket-config-kv-id" 替换为实际 KV ID
 # 你可以在 Cloudflare Dashboard → Workers & Pages → KV 中查看或创建
 
 [[kv_namespaces]]
-binding = "SESSION_KV"                    # 与代码中 env.SESSION_KV 对应
+binding = "SESSION_KV"
 
 
 [[kv_namespaces]]
-binding = "BUCKET_CONFIG"                 # 与代码中 env.BUCKET_CONFIG 对应
-
-
-# ========== 环境变量 ==========
-# 敏感变量建议在 Cloudflare Dashboard 中设置（加密变量），此处仅作本地开发示例
-[vars]
-ALLOW_ORIGIN = "https://lkin.cn"         # 前端域名（CORS）
+binding = "BUCKET_CONFIG"
