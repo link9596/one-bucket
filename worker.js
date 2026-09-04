@@ -71,7 +71,6 @@ async function decryptText(encryptedObj, masterKeyString) {
   return new TextDecoder().decode(plaintext);
 }
 
-// ----- 路径安全规范化（防止遍历，增强 URL 编码检测） -----
 function sanitizeKey(key) {
   if (typeof key !== 'string') throw new Error('Invalid key');
   
@@ -80,16 +79,19 @@ function sanitizeKey(key) {
     throw new Error('Path traversal not allowed');
   }
   
-  // 基本检查
-  if (key.includes('../') || key.includes('..\\') || key.startsWith('/')) {
+  // 基本检查：禁止包含 ../ 或 ..\
+  if (key.includes('../') || key.includes('..\\')) {
     throw new Error('Path traversal not allowed');
   }
   
-  const parts = key.split('/').filter(p => p !== '' && p !== '.');
+  // 按 / 分割，检查是否有 '..' 片段
+  const parts = key.split('/');
   if (parts.some(p => p === '..')) {
     throw new Error('Path traversal not allowed');
   }
-  return parts.join('/');
+  
+  // 去除开头的所有斜杠（S3 key 不应以 / 开头），但保留末尾斜杠
+  return key.replace(/^\/+/, '');
 }
 
 // ----- 密码哈希（PBKDF2 + 随机盐） -----
