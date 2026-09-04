@@ -261,7 +261,7 @@ export default {
 
     // ---- 非 API 请求：代理到 GitHub Pages 前端 ----
     if (!isApi) {
-      const frontendBase = 'https://link9596.github.io/one-bucket-pages';
+      const frontendBase = 'https://link9596.github.io/one-bucket-pages/';
       const targetUrl = new URL(path + url.search, frontendBase);
 
       // 构造代理请求（保留 method、headers、body）
