@@ -238,8 +238,16 @@ export default {
     const path = url.pathname;
     const method = request.method;
 
-    // ---- 前端基础地址 ----
+    // ---- 前端基础地址（优先使用环境变量 ADMIN_URL） ----
     const frontendBase = env.ADMIN_URL || 'https://link9596.github.io/one-bucket';
+
+    // ---- 检查密码是否已设置（无需鉴权） ----
+    if (path === "/admin/password-status" && method === "GET") {
+      const storedHash = await getAdminPwdHash(env);
+      return Response.json({ set: !!storedHash }, {
+        headers: { 'Content-Type': 'application/json;charset=utf-8' }
+      });
+    }
 
     // ---- API 路径定义 ----
     const apiMap = {
@@ -262,9 +270,9 @@ export default {
     };
     const isApi = apiMap[path]?.includes(method) || (path.startsWith('/admin/') && method === 'POST');
 
-    // ---- 非 API 请求：代理到前端 ----
+    // ---- 非 API 请求：代理到前端（SPA 模式） ----
     if (!isApi) {
-      // 静态资源匹配
+      // 静态资源匹配：以 /file/ 开头，或常见扩展名
       const isStatic = path.startsWith('/file/') || /\.(css|js|png|jpg|jpeg|gif|svg|ico|webp|woff2?|ttf|eot|json|xml|txt)$/.test(path);
       
       if (isStatic) {
