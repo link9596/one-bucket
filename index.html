@@ -101,38 +101,36 @@
       transition: background-color 0.3s ease;
     }
 
-/* 全局滚动条样式 */
-html {
-  scrollbar-width: thin;
-  scrollbar-color: var(--scroll-bar) transparent;
-}
+    /* 全局滚动条样式 */
+    html {
+      scrollbar-width: thin;
+      scrollbar-color: var(--scroll-bar) transparent;
+    }
 
-/* WebKit 浏览器（Edge、Chrome、Safari） */
-::-webkit-scrollbar {
-  width: 4px;
-  height: 4px;
-  background: transparent;
-}
+    ::-webkit-scrollbar {
+      width: 4px;
+      height: 4px;
+      background: transparent;
+    }
 
-::-webkit-scrollbar-track {
-  background: transparent;
-  border-radius: 2px;
-}
+    ::-webkit-scrollbar-track {
+      background: transparent;
+      border-radius: 2px;
+    }
 
-::-webkit-scrollbar-thumb {
-  background: var(--scroll-bar);
-  border-radius: 2px;
-  transition: background 0.2s;
-}
+    ::-webkit-scrollbar-thumb {
+      background: var(--scroll-bar);
+      border-radius: 2px;
+      transition: background 0.2s;
+    }
 
-::-webkit-scrollbar-thumb:hover {
-  background: var(--scroll-bar-hover);
-}
+    ::-webkit-scrollbar-thumb:hover {
+      background: var(--scroll-bar-hover);
+    }
 
-/* 可选：调整滚动条角落 */
-::-webkit-scrollbar-corner {
-  background: transparent;
-}
+    ::-webkit-scrollbar-corner {
+      background: transparent;
+    }
 
     .wrap {
       max-width: 1200px;
@@ -169,40 +167,27 @@ html {
 
     .status-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
     .tip { font-size: 0.8rem; color: var(--text-secondary); background: var(--bg-progress); padding: 8px 12px; border-radius: 20px; }
+    
+    /* 刷新按钮样式（同时被新建文件夹、批量删除按钮复用） */
     .refresh-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--bg-progress); border: none; cursor: pointer; color: var(--text-secondary); transition: all 0.2s; padding:0px;}
     .refresh-btn:hover { background: var(--border-light); color: var(--text-primary); }
     .refresh-btn:active { transform: rotate(180deg); }
     .refresh-btn svg { width: 18px; height: 18px; }
 
-    .new-folder-btn, .batch-del-btn {
-      background: none;
-      border: none;
-      cursor: pointer;
-      color: var(--text-secondary);
-      padding: 6px;
-      border-radius: 50%;
-      transition: all 0.2s;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      box-shadow: none;
-    }
-    .new-folder-btn:hover {
-      background: var(--bg-progress);
-      color: var(--btn-primary);
-    }
+    /* 批量删除按钮额外样式（覆盖 refresh-btn 的颜色和禁用状态） */
     .batch-del-btn {
       color: var(--text-muted);
       cursor: not-allowed;
       opacity: 0.5;
     }
     .batch-del-btn.active {
-      color: var(--btn-danger);
+      background-color: #f8bbd0;  /* 粉红色背景 */
+      color: #c2185b;             /* 深粉红图标 */
       cursor: pointer;
       opacity: 1;
     }
     .batch-del-btn.active:hover {
-      background: var(--bg-progress);
+      background-color: #f48fb1;  /* 悬停加深 */
     }
 
     input, button {
@@ -245,6 +230,7 @@ html {
     td button.del-btn { background: var(--btn-danger); color: white; }
     td button.del-btn:hover { background: var(--btn-danger-hover); }
 
+    /* 选中行高亮 */
     tr.selected {
       background: var(--bg-progress) !important;
     }
@@ -518,8 +504,8 @@ html {
 
   <div class="status-bar">
     <div class="tip" id="status">就绪</div>
-    <!-- 新建文件夹按钮 -->
-    <button id="newFolderBtn" class="new-folder-btn" title="新建文件夹" onclick="openNewFolderModal()">
+    <!-- 新建文件夹按钮：复用 refresh-btn 类 -->
+    <button class="refresh-btn" id="newFolderBtn" title="新建文件夹" onclick="openNewFolderModal()">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="1em" height="1em">
         <g fill="none">
           <path fill="currentColor" fill-rule="evenodd" d="M17.5 23a5.5 5.5 0 1 0 0-11a5.5 5.5 0 0 0 0 11m0-8.993a.5.5 0 0 1 .5.5V17h2.493a.5.5 0 1 1 0 1H18v2.494a.5.5 0 0 1-1 0V18h-2.493a.5.5 0 1 1 0-1H17v-2.493a.5.5 0 0 1 .5-.5" clip-rule="evenodd"/>
@@ -527,8 +513,8 @@ html {
         </g>
       </svg>
     </button>
-    <!-- 批量删除按钮 -->
-    <button id="batchDelBtn" class="batch-del-btn" title="删除选中项" onclick="batchDelete()" disabled>
+    <!-- 批量删除按钮：复用 refresh-btn 并增加 batch-del-btn 特殊样式 -->
+    <button class="refresh-btn batch-del-btn" id="batchDelBtn" title="删除选中项" onclick="batchDelete()" disabled>
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="1em" height="1em">
         <path fill="currentColor" d="M19 4h-3.5l-1-1h-5l-1 1H5v2h14V4zM6 7v13a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7H6zm3 3h2v8H9v-8zm4 0h2v8h-2v-8z"/>
       </svg>
@@ -1392,14 +1378,14 @@ async function getFileList(path = currentPath) {
         tr.setAttribute('data-key', item.path);
         tr.addEventListener('click', handleRowClick);
         tr.innerHTML = `
-          <td onclick="event.stopPropagation();" style="cursor:pointer;">
-            <a onclick="openFolder('${item.path}')">📁 ${escapeHtml(folderName)}</a>
+          <td>
+            <a onclick="event.stopPropagation(); openFolder('${item.path}')" style="cursor:pointer;">📁 ${escapeHtml(folderName)}</a>
           </td>
           <td>—</td>
           <td>—</td>
-          <td onclick="event.stopPropagation();">
-            <button class="copy-btn" onclick="openRename('${encodeURIComponent(item.path)}', '${escapeHtml(folderName)}')">重命名</button>
-            <button class="del-btn" onclick="delItem('${item.path}')">删除</button>
+          <td>
+            <button class="copy-btn" onclick="event.stopPropagation(); openRename('${encodeURIComponent(item.path)}', '${escapeHtml(folderName)}')">重命名</button>
+            <button class="del-btn" onclick="event.stopPropagation(); delItem('${item.path}')">删除</button>
           </td>
         `;
         listDom.appendChild(tr);
@@ -1415,17 +1401,17 @@ async function getFileList(path = currentPath) {
         tr.setAttribute('data-key', item.fullKey);
         tr.addEventListener('click', handleRowClick);
         tr.innerHTML = `
-          <td onclick="event.stopPropagation();" style="cursor:pointer;">
-            <span onclick="openRename('${encodeURIComponent(item.fullKey)}', '${escapeHtml(item.name)}')" style="cursor:pointer;">📄 ${escapeHtml(item.name)}</span>
+          <td>
+            <span onclick="event.stopPropagation(); openRename('${encodeURIComponent(item.fullKey)}', '${escapeHtml(item.name)}')" style="cursor:pointer;">📄 ${escapeHtml(item.name)}</span>
           </td>
           <td>${size}</td>
           <td>${time}</td>
-          <td onclick="event.stopPropagation();">
-            ${item.url ? `<a href="${item.url}" target="_blank">预览</a>` : ''}
-            <button class="copy-btn" onclick="downloadFile('${item.downloadUrl}')">下载</button>
-            <button class="copy-btn" onclick="copyLink('${item.url}', '${escapeHtml(item.name)}')">复制链接</button>
-            ${isTextFile ? `<button class="copy-btn" onclick="openEditor('${encodeURIComponent(item.fullKey)}', '${escapeHtml(item.name)}')">编辑</button>` : ''}
-            <button class="del-btn" onclick="delItem('${item.fullKey}')">删除</button>
+          <td>
+            ${item.url ? `<a href="${item.url}" target="_blank" onclick="event.stopPropagation();">预览</a>` : ''}
+            <button class="copy-btn" onclick="event.stopPropagation(); downloadFile('${item.downloadUrl}')">下载</button>
+            <button class="copy-btn" onclick="event.stopPropagation(); copyLink('${item.url}', '${escapeHtml(item.name)}')">复制链接</button>
+            ${isTextFile ? `<button class="copy-btn" onclick="event.stopPropagation(); openEditor('${encodeURIComponent(item.fullKey)}', '${escapeHtml(item.name)}')">编辑</button>` : ''}
+            <button class="del-btn" onclick="event.stopPropagation(); delItem('${item.fullKey}')">删除</button>
           </td>
         `;
         listDom.appendChild(tr);
