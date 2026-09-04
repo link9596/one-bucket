@@ -184,13 +184,13 @@
       opacity: 0.5;
     }
     .batch-del-btn.active {
-      background-color: #f8bbd0;  /* 粉红色背景 */
-      color: #fff;             /* 深粉红图标 */
+      background-color: #ff7878;
+      color: #fff;
       cursor: pointer;
       opacity: 1;
     }
     .batch-del-btn.active:hover {
-      background-color: #f48fb1;  /* 悬停加深 */
+      background-color: #f48fb1;
     }
 
     input, button {
@@ -1016,11 +1016,11 @@ function renderBucketCardList() {
     let usageHtml = '';
     const size = bucketSizes[b.id];
     if (size != null && size !== undefined) {
-      usageHtml = `<div class="card-usage">📊 ${formatSize(size)}</div>`;
+      usageHtml = `<div class="card-usage">📁 ${formatSize(size)}</div>`;
     } else if (b.accountId && b.hasToken) {
-      usageHtml = `<div class="card-usage">📊 获取中...</div>`;
+      usageHtml = `<div class="card-usage">📁 获取中...</div>`;
     } else {
-      usageHtml = `<div class="card-usage">📊 未配置统计</div>`;
+      usageHtml = `<div class="card-usage"></div>`;
     }
 
     const domainHtml = b.publicDomain ? `<div class="card-domain">🌐 ${escapeHtml(b.publicDomain)}</div>` : '';
@@ -1078,8 +1078,8 @@ function renderBucketDetailForm(index) {
   div.innerHTML = `
     <div class="bucket-config-grid">
       <div class="form-field">
-        <label>唯一ID（不可修改）</label>
-        <input value="${b.id || ''}" data-field="id" readonly style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
+        <label>唯一ID</label>
+        <input value="${b.id || ''}" data-field="id" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
       </div>
       <div class="form-field">
         <label>显示名称</label>
@@ -1135,7 +1135,7 @@ function renderBucketDetailFormFromTemp() {
   div.innerHTML = `
     <div class="bucket-config-grid">
       <div class="form-field">
-        <label>唯一ID（保存后不可修改）</label>
+        <label>唯一ID</label>
         <input placeholder="唯一ID (如 bucket-1)" value="${b.id || ''}" data-field="id" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
       </div>
       <div class="form-field">
