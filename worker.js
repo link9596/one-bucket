@@ -71,12 +71,20 @@ async function decryptText(encryptedObj, masterKeyString) {
   return new TextDecoder().decode(plaintext);
 }
 
-// ----- 路径安全规范化（防止遍历） -----
+// ----- 路径安全规范化（防止遍历，增强 URL 编码检测） -----
 function sanitizeKey(key) {
   if (typeof key !== 'string') throw new Error('Invalid key');
+  
+  // 检测 URL 编码的路径遍历模式（如 %2e%2e%2f）
+  if (/%2e|%2E/i.test(key)) {
+    throw new Error('Path traversal not allowed');
+  }
+  
+  // 基本检查
   if (key.includes('../') || key.includes('..\\') || key.startsWith('/')) {
     throw new Error('Path traversal not allowed');
   }
+  
   const parts = key.split('/').filter(p => p !== '' && p !== '.');
   if (parts.some(p => p === '..')) {
     throw new Error('Path traversal not allowed');
@@ -124,6 +132,46 @@ async function timingSafeEqual(a, b) {
   const bBuf = encoder.encode(b);
   if (aBuf.length !== bBuf.length) return false;
   return await crypto.subtle.timingSafeEqual(aBuf, bBuf);
+}
+
+// ==================== 速率限制相关 ====================
+const RATE_LIMIT_PREFIX = 'rate_limit_';
+const MAX_FAILED_ATTEMPTS = 5;
+const RATE_WINDOW_MS = 15 * 60 * 1000; // 15 分钟
+
+async function getRateLimitInfo(env, ip) {
+  const key = RATE_LIMIT_PREFIX + ip;
+  const raw = await env.SESSION_KV.get(key, 'json');
+  if (!raw) return null;
+  return raw;
+}
+
+async function recordFailedAttempt(env, ip) {
+  const key = RATE_LIMIT_PREFIX + ip;
+  const now = Date.now();
+  const info = (await getRateLimitInfo(env, ip)) || { count: 0, firstAttempt: now };
+  // 如果超过窗口时间，重置计数
+  if (now - info.firstAttempt > RATE_WINDOW_MS) {
+    info.count = 0;
+    info.firstAttempt = now;
+  }
+  info.count += 1;
+  await env.SESSION_KV.put(key, JSON.stringify(info), { expirationTtl: Math.ceil(RATE_WINDOW_MS / 1000) });
+  return info.count;
+}
+
+async function resetRateLimit(env, ip) {
+  const key = RATE_LIMIT_PREFIX + ip;
+  await env.SESSION_KV.delete(key);
+}
+
+async function isRateLimited(env, ip) {
+  const info = await getRateLimitInfo(env, ip);
+  if (!info) return false;
+  const now = Date.now();
+  // 如果超过窗口时间，视为未限制
+  if (now - info.firstAttempt > RATE_WINDOW_MS) return false;
+  return info.count >= MAX_FAILED_ATTEMPTS;
 }
 
 // ==================== KV 操作 ====================
@@ -425,6 +473,7 @@ export default {
 
     // ---- 前端基础地址 ----
     const frontendBase = env.ADMIN_URL || 'https://link9596.github.io/one-bucket';
+    const frontendOrigin = new URL(frontendBase).origin;
 
     // ---- 密码状态（无需鉴权） ----
     if (path === "/admin/password-status" && method === "GET") {
@@ -458,41 +507,42 @@ export default {
     // ---- 非 API 请求：代理前端 ----
     if (!isApi) {
       const isStatic = path.startsWith('/file/') || /\.(css|js|png|jpg|jpeg|gif|svg|ico|webp|woff2?|ttf|eot|json|xml|txt)$/.test(path);
-      if (isStatic) {
-        const targetUrl = new URL(path + url.search, frontendBase);
-        const proxyRequest = new Request(targetUrl.toString(), {
-          method: request.method,
-          headers: request.headers,
-          body: request.body,
+      // 构造安全的相对路径（去掉开头的 '/' 以避免协议相对解析）
+      const relativePath = path.startsWith('/') ? path.slice(1) : path;
+      const targetUrl = new URL(relativePath + url.search, frontendBase + (frontendBase.endsWith('/') ? '' : '/'));
+      
+      // 检查目标 origin 是否与 frontendBase 一致，防止 SSRF
+      if (targetUrl.origin !== frontendOrigin) {
+        return new Response('Invalid proxy target', { status: 403 });
+      }
+
+      // 构造代理请求，过滤敏感请求头（仅保留安全头）
+      const safeHeaders = new Headers();
+      const allowedHeaders = ['accept', 'accept-language', 'user-agent', 'cache-control', 'if-none-match', 'if-modified-since', 'range'];
+      for (const [key, value] of request.headers.entries()) {
+        if (allowedHeaders.includes(key.toLowerCase())) {
+          safeHeaders.set(key, value);
+        }
+      }
+
+      const proxyRequest = new Request(targetUrl.toString(), {
+        method: request.method,
+        headers: safeHeaders,
+        body: request.body,
+      });
+
+      try {
+        const response = await fetch(proxyRequest);
+        const headers = new Headers(response.headers);
+        headers.delete('content-security-policy');
+        return new Response(response.body, {
+          status: response.status,
+          statusText: response.statusText,
+          headers,
         });
-        try {
-          const response = await fetch(proxyRequest);
-          const headers = new Headers(response.headers);
-          headers.delete('content-security-policy');
-          return new Response(response.body, {
-            status: response.status,
-            statusText: response.statusText,
-            headers,
-          });
-        } catch (e) {
-          console.error(`[Static Proxy Error] ${e.message}`);
-          return new Response('Static proxy error: ' + e.message, { status: 502 });
-        }
-      } else {
-        const indexUrl = frontendBase + '/index.html';
-        try {
-          const indexResponse = await fetch(indexUrl);
-          const headers = new Headers(indexResponse.headers);
-          headers.set('Content-Type', 'text/html; charset=utf-8');
-          headers.delete('content-security-policy');
-          return new Response(indexResponse.body, {
-            status: 200,
-            headers,
-          });
-        } catch (e) {
-          console.error(`[SPA Fallback Error] ${e.message}`);
-          return new Response('SPA fallback error: ' + e.message, { status: 502 });
-        }
+      } catch (e) {
+        console.error(`[Static Proxy Error] ${e.message}`);
+        return new Response('Static proxy error: ' + e.message, { status: 502 });
       }
     }
 
@@ -506,22 +556,37 @@ export default {
       return null;
     };
 
+    // 获取客户端 IP（用于速率限制）
+    const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+
     // ---- 登录 ----
     if (path === "/login" && method === "POST") {
+      // 速率限制检查
+      if (await isRateLimited(env, clientIp)) {
+        return Response.json({ code: 429, msg: "尝试次数过多，请稍后再试" }, { status: 429 });
+      }
+
       const { pwd } = await request.json();
       if (!pwd) {
+        await recordFailedAttempt(env, clientIp);
         return Response.json({ code: 400, msg: "请输入密码" }, { status: 400 });
       }
       const stored = await getAdminPwdHash(env);
       if (!stored) {
+        await recordFailedAttempt(env, clientIp);
         return Response.json({ code: 503, msg: "管理员密码尚未设置，请通过修改密码接口初始化" }, { status: 503 });
       }
       const { salt, hash: storedHash } = stored;
       const { hash: inputHash } = await hashPassword(pwd, salt);
       const isMatch = await timingSafeEqual(inputHash, storedHash);
       if (!isMatch) {
+        await recordFailedAttempt(env, clientIp);
         return Response.json({ code: 401, msg: "密码错误" }, { status: 401 });
       }
+      
+      // 登录成功，重置速率限制
+      await resetRateLimit(env, clientIp);
+
       const token = crypto.randomUUID();
       await env.SESSION_KV.put(token, "valid", { expirationTtl: 604800 });
       const cookie = `token=${token}; HttpOnly; Secure; SameSite=Strict; Max-Age=604800; Path=/`;
@@ -543,8 +608,17 @@ export default {
       });
     }
 
-    // ---- 登出 ----
+    // ---- 登出（增加 CSRF 防护） ----
     if (path === "/logout" && method === "POST") {
+      // CSRF 检查：如果存在 Origin 头，必须与当前 Worker 的 origin 一致
+      const originHeader = request.headers.get('Origin');
+      if (originHeader) {
+        const workerOrigin = new URL(request.url).origin;
+        if (originHeader !== workerOrigin) {
+          return Response.json({ code: 403, msg: "CSRF 校验失败" }, { status: 403 });
+        }
+      }
+
       const token = getToken();
       if (token) await env.SESSION_KV.delete(token);
       return new Response(JSON.stringify({ code: 200, msg: "已登出" }), {
@@ -555,24 +629,50 @@ export default {
       });
     }
 
-    // ---- 修改密码 ----
+    // ---- 修改密码（强制会话令牌，首次设置除外） ----
     if (path === "/admin/change-password" && method === "POST") {
+      const stored = await getAdminPwdHash(env);
+
+      // 如果密码已设置，则要求有效会话令牌
+      if (stored) {
+        const token = getToken();
+        if (!token) {
+          return Response.json({ code: 401, msg: "未授权" }, { status: 401 });
+        }
+        const isValid = await env.SESSION_KV.get(token);
+        if (!isValid) {
+          return Response.json({ code: 401, msg: "token 无效或已过期" }, { status: 401 });
+        }
+      }
+
+      // 速率限制检查（防止暴力破解旧密码）
+      if (await isRateLimited(env, clientIp)) {
+        return Response.json({ code: 429, msg: "尝试次数过多，请稍后再试" }, { status: 429 });
+      }
+
       const { oldPwd, newPwd } = await request.json();
       if (!newPwd || newPwd.length < 6) {
+        await recordFailedAttempt(env, clientIp);
         return Response.json({ code: 400, msg: "新密码长度至少6位" }, { status: 400 });
       }
-      const stored = await getAdminPwdHash(env);
+
       if (stored) {
         if (!oldPwd) {
+          await recordFailedAttempt(env, clientIp);
           return Response.json({ code: 400, msg: "请输入旧密码" }, { status: 400 });
         }
         const { salt, hash: storedHash } = stored;
         const { hash: inputHash } = await hashPassword(oldPwd, salt);
         const isMatch = await timingSafeEqual(inputHash, storedHash);
         if (!isMatch) {
+          await recordFailedAttempt(env, clientIp);
           return Response.json({ code: 401, msg: "旧密码错误" }, { status: 401 });
         }
       }
+
+      // 验证通过，重置速率限制
+      await resetRateLimit(env, clientIp);
+
       const newHashObj = await hashPassword(newPwd);
       await setAdminPwdHash(env, newHashObj);
       const deletedCount = await revokeAllSessions(env);
