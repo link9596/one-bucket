@@ -4,7 +4,7 @@
 
 **一个基于 Cloudflare Workers 的多桶云存储网盘 / 文件管理器**
 
-支持 **Cloudflare R2** 及任意 **S3 兼容对象存储**，单文件前端 + Worker 后端，开箱即用。
+支持 **Cloudflare R2** 及任意 **S3 兼容对象存储**，Pages 前端 + Worker 后端，开箱即用。
 
 [English](./README.en.md) · [一键部署到 Cloudflare](https://deploy.workers.cloudflare.com/?url=https://github.com/link9596/one-bucket/)
 
@@ -34,7 +34,7 @@ OneBucket 是一个部署在 **Cloudflare Workers** 上的轻量级云存储管�
 项目由两部分组成：
 
 - **`worker.js`** —— Cloudflare Worker 后端，负责鉴权、存储网关、API 与静态资源代理；
-- **`index.html`** —— 单文件前端 SPA（无任何构建步骤），可部署到 GitHub Pages 等任意静态托管。
+- **`index.html`** —— 单文件前端 SPA，可部署到 GitHub Pages 等任意静态托管。
 
 ## 功能特性
 
@@ -44,11 +44,11 @@ OneBucket 是一个部署在 **Cloudflare Workers** 上的轻量级云存储管�
 - **批量上传**：多文件队列上传，**3 路并发**，逐文件实时进度条，成功 / 失败统计
 - **新建文件夹**：一键创建目录占位对象
 - **下载文件**：流式下载，正确处理中文文件名（RFC 5987）
-- **在线预览**：配置 `publicDomain` 后可直接预览图片 / 音视频等，并复制公共直链
+- **在线预览**：配置 `公共域名` 后可直接预览图片 / 音视频等，并复制公共直链
 - **导出全部链接**：一键复制当前目录所有文件的「文件名 + 链接」表格到剪贴板
 - **在线文本编辑**：≤ 2MB 的文本文件可直接在线编辑并保存（自动识别 MIME 类型）
 - **重命名**：支持文件与文件夹重命名（文件夹递归处理，含对象数上限保护）
-- **删除**：单文件删除、文件夹递归删除、**批量删除**（多选）
+- **删除**：单文件删除、文件夹递归删除、**批量删除**
 
 ### 🔐 认证与安全
 - **密码登录**：PBKDF2（100,000 次迭代 + 随机盐）哈希存储，时序安全比较
@@ -63,8 +63,7 @@ OneBucket 是一个部署在 **Cloudflare Workers** 上的轻量级云存储管�
 ### 🎨 前端体验
 - 亮色 / 暗色主题自适应（跟随系统）
 - 移动端响应式布局
-- Toast 提示、加载遮罩、按钮图标化操作
-- 桶下拉选择器 + 实时用量显示（通过 Cloudflare API）
+- 实时用量显示（通过 Cloudflare API）
 
 ## 技术架构
 
@@ -160,10 +159,10 @@ id = "你的 BUCKET_CONFIG 命名空间 id"
 
 ```bash
 npx wrangler secret put MASTER_KEY   # 必填：用于加密桶凭证的主密钥
-npx wrangler secret put ADMIN_URL    # 可选：前端地址，默认 https://link9596.github.io/one-bucket
+npx wrangler secret put ADMIN_URL    # 可选：前端地址，不填则默认使用本项目前端地址
 ```
 
-> `MASTER_KEY` 是桶敏感凭证的加密密钥，务必使用足够强度的随机字符串，并妥善保管——丢失将导致已加密的桶凭证无法解密。
+> `MASTER_KEY` 是桶敏感凭证的加密密钥，务必使用足够强度的随机字符串，并妥善保管——丢失将导致已加密的桶凭证无法解密，必须重新配置。可以使用UUID生成器。
 
 **4. 部署 Worker**
 
@@ -173,12 +172,12 @@ npx wrangler deploy
 
 **5. 部署前端**
 
-将 `index.html` 部署到任意静态托管（如 GitHub Pages），然后通过 `ADMIN_URL` 告知 Worker 前端地址。
+将 `index.html` 部署到任意静态托管（如 GitHub Pages），然后通过 `ADMIN_URL` Worker环境变量设置 Worker 前端地址。
 
 **6. 初始化并开始使用**
 
 - 首次打开前端会自动进入「初始化密码」流程
-- 登录后在「桶列表」中新增存储桶配置（需提供 `accountId`、S3 endpoint、Access Key、Secret Key、可选 `apiToken` 与 `publicDomain`）
+- 登录后在「桶列表」中新增存储桶配置
 - 保存后即可开始上传 / 管理文件
 
 ## 配置说明
@@ -188,7 +187,7 @@ npx wrangler deploy
 | 变量 | 必填 | 说明 |
 | --- | --- | --- |
 | `MASTER_KEY` | ✅ | 用于 AES-GCM 加密桶 `secretAccessKey` / `apiToken` 的主密钥 |
-| `ADMIN_URL` | ❌ | 前端首页地址，默认 `https://link9596.github.io/one-bucket`；Worker 会代理该站点的静态资源 |
+| `ADMIN_URL` | ❌ | 前端地址，默认使用本项目前端 `https://link9596.github.io/one-bucket` |
 
 ### KV 绑定
 
@@ -201,13 +200,13 @@ npx wrangler deploy
 
 | 字段 | 说明 |
 | --- | --- |
-| `id` | 桶标识（也作为 R2 桶名） |
-| `name` | 显示名称 |
+| `id` | 桶标识 |
+| `name` | 显示在前台的名称 |
 | `accountId` | Cloudflare 账号 ID（用于用量查询） |
 | `endpoint` | S3 兼容端点地址（如 R2 的 `https://<account>.r2.cloudflarestorage.com`） |
-| `accessKeyId` | Access Key（明文存储） |
+| `accessKeyId` | Access Key |
 | `secretAccessKey` | Secret Key（AES-GCM 加密存储） |
-| `apiToken` | Cloudflare API Token（用于用量查询，可选，加密存储） |
+| `apiToken` | Cloudflare API Token（用于用量查询，可选 |
 | `publicDomain` | 公共访问域名（可选），配置后文件可获得公共直链 |
 
 ## 安全设计
