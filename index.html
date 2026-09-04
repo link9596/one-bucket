@@ -190,7 +190,7 @@
       opacity: 1;
     }
     .batch-del-btn.active:hover {
-      background-color: #f48fb1;
+      background-color: #ffa0a0;
     }
 
     input, button {
@@ -1649,42 +1649,16 @@ function copyLink(url, fileName) {
 }
 
 // ---------- 下载 ----------
-async function downloadFile(downloadUrl) {
+function downloadFile(downloadUrl) {
   if (!downloadUrl) { showToast('下载地址无效'); return; }
-  const fullUrl = downloadUrl.startsWith('http') ? downloadUrl : downloadUrl;
-  try {
-    const response = await fetch(fullUrl, { credentials: 'include' });
-    if (!response.ok) { showToast('下载失败：' + response.status); return; }
-    let filename = '';
-    const contentDisposition = response.headers.get('Content-Disposition');
-    if (contentDisposition) {
-      const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
-      if (utf8Match) { try { filename = decodeURIComponent(utf8Match[1]); } catch(e) {} }
-      if (!filename) {
-        const asciiMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
-        if (asciiMatch) filename = asciiMatch[1];
-      }
-    }
-    if (!filename) {
-      const urlObj = new URL(fullUrl);
-      const keyParam = urlObj.searchParams.get('key');
-      if (keyParam) filename = decodeURIComponent(keyParam).split('/').pop() || 'download';
-    }
-    if (!filename) filename = 'download';
-
-    const blob = await response.blob();
-    const blobUrl = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = blobUrl;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    a.remove();
-    URL.revokeObjectURL(blobUrl);
-    showToast('下载已开始');
-  } catch (e) {
-    showToast('下载失败：' + e.message);
-  }
+  showToast('请等待浏览器唤起下载');
+  
+  // 创建隐藏的 <a> 标签直接触发浏览器下载
+  const a = document.createElement('a');
+  a.href = downloadUrl;
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
 }
 
 // ---------- 编辑器 ----------
