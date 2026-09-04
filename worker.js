@@ -231,19 +231,6 @@ async function getBucketUsage(accountId, bucketName, apiToken) {
   return json.result?.payloadSize || null;
 }
 
-// ========== 静态资源扩展名列表 ==========
-const STATIC_EXTENSIONS = new Set([
-  '.css', '.js', '.mjs', '.json', '.xml', '.txt',
-  '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.webp',
-  '.woff', '.woff2', '.ttf', '.eot', '.otf',
-  '.html', '.htm' // 如果直接访问 html 文件，也按原路径代理
-]);
-
-function isStaticResource(pathname) {
-  const ext = pathname.split('.').pop();
-  return ext && STATIC_EXTENSIONS.has('.' + ext.toLowerCase());
-}
-
 // ========== Worker 主函数 ==========
 export default {
   async fetch(request, env) {
@@ -251,8 +238,96 @@ export default {
     const path = url.pathname;
     const method = request.method;
 
-    // 定义 CORS 头（仅用于 API 响应）
-    const ALLOW_ORIGIN = env.ALLOW_ORIGIN || 'https://lkin.cn';
+    // ---- 定义 API 路径（精确匹配 + 方法） ----
+    const apiMap = {
+      '/login': ['POST'],
+      '/logout': ['POST'],
+      '/admin/change-password': ['POST'],
+      '/admin/buckets': ['GET', 'POST'],
+      '/admin/login-history': ['GET'],
+      '/admin/delete-login-history': ['POST'],
+      '/admin/update-session': ['POST'],
+      '/list': ['GET'],
+      '/upload': ['POST'],
+      '/mkdir': ['POST'],
+      '/del': ['DELETE'],
+      '/download': ['GET'],
+      '/read': ['GET'],
+      '/write': ['PUT'],
+      '/rename': ['POST'],
+      '/usage': ['GET'],
+    };
+    const isApi = apiMap[path]?.includes(method) || (path.startsWith('/admin/') && method === 'POST');
+
+    // ---- 非 API 请求：代理到 GitHub Pages 前端 ----
+    if (!isApi) {
+      const frontendBase = 'https://link9596.github.io/one-bucket-pages';
+      const targetUrl = new URL(path + url.search, frontendBase);
+
+      // 构造代理请求（保留 method、headers、body）
+      const proxyRequest = new Request(targetUrl.toString(), {
+        method: request.method,
+        headers: request.headers,
+        body: request.body,
+        // 如果 request 有 cf 属性可以保留，但代理转发不需要
+      });
+
+      try {
+        const proxyResponse = await fetch(proxyRequest);
+
+        // 如果是重定向（3xx），需要修改 Location 头，将域名替换为当前 Worker 域名
+        if (proxyResponse.status >= 300 && proxyResponse.status < 400) {
+          const location = proxyResponse.headers.get('Location');
+          if (location) {
+            const locationUrl = new URL(location, frontendBase);
+            // 将目标域名替换为当前 Worker 域名，保持路径不变
+            const newLocation = url.origin + locationUrl.pathname + locationUrl.search;
+            const headers = new Headers(proxyResponse.headers);
+            headers.set('Location', newLocation);
+            return new Response(proxyResponse.body, {
+              status: proxyResponse.status,
+              statusText: proxyResponse.statusText,
+              headers: headers,
+            });
+          }
+        }
+
+        // 如果是 404 且请求的不是静态资源（根据 Accept 或路径扩展名判断），返回 index.html（SPA fallback）
+        if (proxyResponse.status === 404) {
+          const accept = request.headers.get('Accept') || '';
+          const isHtmlRequest = accept.includes('text/html') || !path.includes('.');
+          if (isHtmlRequest) {
+            // 重新请求 index.html
+            const indexUrl = new URL('/', frontendBase);
+            const indexResponse = await fetch(indexUrl.toString(), {
+              method: 'GET',
+              headers: { 'Accept': 'text/html' },
+            });
+            return new Response(indexResponse.body, {
+              status: 200,
+              headers: {
+                'Content-Type': 'text/html; charset=utf-8',
+                'Cache-Control': 'no-cache',
+              },
+            });
+          }
+        }
+
+        // 正常返回响应（删除一些可能干扰的头）
+        const responseHeaders = new Headers(proxyResponse.headers);
+        responseHeaders.delete('content-security-policy');
+        return new Response(proxyResponse.body, {
+          status: proxyResponse.status,
+          statusText: proxyResponse.statusText,
+          headers: responseHeaders,
+        });
+      } catch (error) {
+        // 代理失败时返回简单错误页面
+        return new Response('Proxy error: ' + error.message, { status: 502 });
+      }
+    }
+
+    const ALLOW_ORIGIN = env.ALLOW_ORIGIN || 'https://link9596.github.io';
     const corsHeaders = {
       "Access-Control-Allow-Origin": ALLOW_ORIGIN,
       "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
@@ -262,62 +337,10 @@ export default {
       "Vary": "Origin"
     };
 
-    // OPTIONS 预检请求
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
 
-    // ---------- 判断是否为 API 请求 ----------
-    function isApiRequest(path, method) {
-      const apiMap = {
-        '/login': ['POST'],
-        '/logout': ['POST'],
-        '/admin/change-password': ['POST'],
-        '/admin/buckets': ['GET', 'POST'],
-        '/admin/login-history': ['GET'],
-        '/admin/delete-login-history': ['POST'],
-        '/admin/update-session': ['POST'],
-        '/list': ['GET'],
-        '/upload': ['POST'],
-        '/mkdir': ['POST'],
-        '/del': ['DELETE'],
-        '/download': ['GET'],
-        '/read': ['GET'],
-        '/write': ['PUT'],
-        '/rename': ['POST'],
-        '/usage': ['GET'],
-      };
-      const methods = apiMap[path];
-      if (methods) return methods.includes(method);
-      if (path.startsWith('/admin/') && method === 'POST') return true;
-      return false;
-    }
-
-    // ---------- 非 API 请求：代理到前端（单页应用支持） ----------
-    if (!isApiRequest(path, method)) {
-      const frontendBase = 'https://ob.lkin.cn/';
-      let targetPath = path;
-
-      // 如果是根路径，直接访问 index.html
-      if (path === '/') {
-        targetPath = '/index.html';
-      } else if (!isStaticResource(path)) {
-        // 非静态资源路径，返回 index.html（让前端路由处理）
-        targetPath = '/index.html';
-      }
-      // 否则保持原路径（静态资源）
-
-      const targetUrl = new URL(targetPath + url.search, frontendBase);
-      const proxyRequest = new Request(targetUrl.toString(), {
-        method: request.method,
-        headers: request.headers,
-        body: request.body,
-      });
-      // 直接转发，并保留响应状态
-      return fetch(proxyRequest);
-    }
-
-    // ---------- 以下是 API 处理逻辑（原有代码） ----------
     const getToken = () => {
       const cookie = request.headers.get('Cookie') || '';
       const cookieToken = cookie.match(/token=([^;]+)/)?.[1];
@@ -327,7 +350,7 @@ export default {
       return null;
     };
 
-    // ---------- 登录 ----------
+    // 登录
     if (path === "/login" && request.method === "POST") {
       const { pwd } = await request.json();
       if (!pwd) {
@@ -344,6 +367,7 @@ export default {
       const token = crypto.randomUUID();
       await env.SESSION_KV.put(token, "valid", { expirationTtl: 604800 });
       const cookie = `token=${token}; HttpOnly; Secure; SameSite=Strict; Max-Age=604800; Path=/`;
+
       const historyRecord = {
         id: crypto.randomUUID(),
         time: new Date().toISOString(),
@@ -352,12 +376,13 @@ export default {
         token: token
       };
       await addLoginHistory(env, historyRecord);
+
       return new Response(JSON.stringify({ code: 200, msg: "登录成功" }), {
         headers: { ...corsHeaders, 'Set-Cookie': cookie }
       });
     }
 
-    // ---------- 登出 ----------
+    // 登出
     if (path === "/logout" && request.method === "POST") {
       const token = getToken();
       if (token) await env.SESSION_KV.delete(token);
@@ -369,7 +394,7 @@ export default {
       });
     }
 
-    // ---------- 修改密码（含初始化） ----------
+    // 修改密码
     if (path === "/admin/change-password" && request.method === "POST") {
       const { oldPwd, newPwd } = await request.json();
       if (!newPwd || newPwd.length < 6) {
@@ -391,7 +416,7 @@ export default {
       return Response.json({ code: 200, msg: `密码已修改，已注销 ${deletedCount} 个会话` }, { headers: corsHeaders });
     }
 
-    // ---------- 全局鉴权（除登录/登出/修改密码外） ----------
+    // 全局鉴权（除登录、登出、改密外）
     if (path !== "/login" && path !== "/logout" && path !== "/admin/change-password") {
       const token = getToken();
       if (!token) {
@@ -403,7 +428,7 @@ export default {
       }
     }
 
-    // ---------- 更新会话活动时间 ----------
+    // 更新会话活动时间
     if (path === "/admin/update-session" && request.method === "POST") {
       const token = getToken();
       if (token) {
@@ -412,7 +437,7 @@ export default {
       return Response.json({ code: 200, msg: "OK" }, { headers: corsHeaders });
     }
 
-    // ---------- 登录历史管理 ----------
+    // 登录历史
     if (path === "/admin/login-history" && request.method === "GET") {
       const history = await getLoginHistory(env);
       const safeHistory = history.map(item => ({
@@ -436,7 +461,7 @@ export default {
       return Response.json({ code: 200, msg: "已删除该登录会话，对应设备需要重新登录" }, { headers: corsHeaders });
     }
 
-    // ---------- 配置管理接口 ----------
+    // 桶配置管理
     if (path === "/admin/buckets" && request.method === "GET") {
       const configs = await getBucketsConfig(env);
       const safe = configs.map(c => ({
@@ -478,7 +503,7 @@ export default {
       return Response.json({ code: 200, msg: "配置已更新" }, { headers: corsHeaders });
     }
 
-    // ---------- 业务接口 ----------
+    // ========== 业务接口 ==========
     const bucketId = url.searchParams.get('bucketId');
     if (!bucketId) {
       return Response.json({ code: 400, msg: "缺少 bucketId 参数" }, { status: 400, headers: corsHeaders });
@@ -657,7 +682,6 @@ export default {
       return Response.json({ code: 200, size: usage }, { headers: corsHeaders });
     }
 
-    // 如果没有任何 API 匹配，返回 404
     return Response.json({ msg: "接口不存在" }, { status: 404, headers: corsHeaders });
   }
 };
