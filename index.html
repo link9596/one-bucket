@@ -592,11 +592,7 @@ html {
 <div id="toast" class="toast"></div>
 
 <script>
-// ============================================================
-// 不再硬编码 API 地址，所有请求使用相对路径（同源）
-// ============================================================
-
-// ---------- 全局变量 ----------
+// 所有 API 请求使用相对路径（同域代理）
 let currentPath = "";
 let currentFilesList = [];
 let currentEditKey = "";
@@ -1024,65 +1020,6 @@ function deleteBucketFromCard(index) {
 }
 
 // 渲染桶详情表单（带字段标签）
-function renderBucketDetailForm(index) {
-  const container = document.getElementById('bucketConfigList');
-  container.innerHTML = '';
-  const b = bucketsConfig[index];
-  const div = document.createElement('div');
-  div.style.cssText = 'border:1px solid var(--border-light); padding:12px; border-radius:12px; background:var(--bg-progress);';
-  div.innerHTML = `
-    <div class="bucket-config-grid">
-      <div class="form-field">
-        <label>唯一ID（不可修改）</label>
-        <input value="${b.id || ''}" data-field="id" readonly style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
-      </div>
-      <div class="form-field">
-        <label>显示名称</label>
-        <input placeholder="显示名称" value="${b.name || ''}" data-field="name" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
-      </div>
-      <div class="form-field">
-        <label>Endpoint</label>
-        <input placeholder="Endpoint (如 https://acc.r2.cloudflarestorage.com)" value="${b.endpoint || ''}" data-field="endpoint" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
-      </div>
-      <div class="form-field">
-        <label>Access Key ID</label>
-        <input placeholder="Access Key ID" value="${b.accessKeyId || ''}" data-field="accessKeyId" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
-      </div>
-      <div class="form-field">
-        <label>Secret Access Key</label>
-        <div style="display:flex; gap:6px; align-items:center;">
-          <input placeholder="留空则不修改" type="password" data-field="secretAccessKey" style="flex:1; padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
-          ${b.hasSecret ? '<span style="font-size:0.7rem; color:var(--text-muted);">(已配置)</span>' : ''}
-        </div>
-      </div>
-      <div class="form-field">
-        <label>公共域名（可选）</label>
-        <input placeholder="公共域名" value="${b.publicDomain || ''}" data-field="publicDomain" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
-      </div>
-      <div style="grid-column: span 2; margin-top: 5px;">
-        <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:5px;">用量统计设置（可选，需 Cloudflare API Token）</div>
-        <div class="usage-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-          <div class="form-field">
-            <label>Account ID</label>
-            <input placeholder="Account ID" value="${b.accountId || ''}" data-field="accountId" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
-          </div>
-          <div class="form-field">
-            <label>API Token</label>
-            <div style="display:flex; gap:6px; align-items:center;">
-              <input placeholder="留空则不修改" type="password" data-field="apiToken" style="flex:1; padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
-              ${b.hasToken ? '<span style="font-size:0.7rem; color:var(--text-muted);">(已配置)</span>' : ''}
-            </div>
-          </div>
-        </div>
-        <small style="display:block; margin-top:4px; color:var(--text-muted);">Token 需拥有 Cloudflare R2 读取权限</small>
-      </div>
-    </div>
-  `;
-  container.appendChild(div);
-}
-// (注意：上面重复了 renderBucketDetailForm，但不会影响执行，下面保留一个有效定义)
-// 为避免重复，将上面的函数覆盖为唯一版本（保留最后定义的函数）
-// 重新定义 renderBucketDetailForm 以避免重复
 function renderBucketDetailForm(index) {
   const container = document.getElementById('bucketConfigList');
   container.innerHTML = '';
@@ -1716,15 +1653,42 @@ function exportAllLinks() {
   });
 }
 
-// ========== 页面加载自动检查登录状态 ==========
+// ========== 页面加载自动检查登录状态（含首次使用检测） ==========
 window.onload = async function() {
   const loadingOverlay = document.getElementById('loadingOverlay');
   loadingOverlay.style.display = 'flex';
+
   try {
+    // 1. 检查密码是否已设置
+    const statusRes = await fetch('/admin/password-status');
+    const statusJson = await statusRes.json();
+
+    if (!statusJson.set) {
+      // 密码未设置直接进入初始化密码模式
+      document.getElementById('loginBox').style.display = 'flex';
+      document.getElementById('loginTitle').innerText = '初始化密码';
+      document.getElementById('pwdInput').placeholder = '设置新密码（至少6位）';
+      document.getElementById('loginBtn').innerText = '设置密码';
+      document.getElementById('loginBtn').onclick = initPassword;
+      document.getElementById('initPwdBtn').style.display = 'none';
+      document.getElementById('loginTip').innerText = '';
+      document.getElementById('mainBox').style.display = 'none';
+      loadingOverlay.classList.add('fade-out');
+      setTimeout(() => loadingOverlay.style.display = 'none', 400);
+      return;
+    }
+
+    // 2. 密码已设置 尝试自动登录（检查 token）
     const res = await fetchWithCreds('/admin/buckets');
-    if (res.status === 401) return;
+    if (res.status === 401) {
+      // 未登录，显示普通登录框
+      loadingOverlay.classList.add('fade-out');
+      setTimeout(() => loadingOverlay.style.display = 'none', 400);
+      return;
+    }
     const json = await res.json();
     if (json.code === 200) {
+      // 已登录，直接显示主界面
       document.getElementById('loginBox').style.display = 'none';
       const mainBox = document.getElementById('mainBox');
       mainBox.style.display = 'block';
