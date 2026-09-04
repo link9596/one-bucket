@@ -1,5 +1,5 @@
 # ========== Worker 基础配置 ==========
-name = "r2-s3-test2"          # 你的 Worker 名称
+name = "one-bucket"          # 你的 Worker 名称
 main = "worker.js"                        # 入口文件
 compatibility_date = "2025-01-01"
 
