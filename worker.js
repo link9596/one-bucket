@@ -37,12 +37,37 @@ async function hashPassword(pwd) {
 const LOGIN_HISTORY_KEY = 'login_history';
 const MAX_HISTORY = 25;
 
+// 新增或更新登录历史（去重）
 async function addLoginHistory(env, info) {
   const raw = await env.SESSION_KV.get(LOGIN_HISTORY_KEY, 'json');
   let history = raw || [];
-  history.unshift(info);
-  if (history.length > MAX_HISTORY) history = history.slice(0, MAX_HISTORY);
+  
+  // 查找相同 IP 和 UA 的记录
+  const existingIndex = history.findIndex(item => item.ip === info.ip && item.ua === info.ua);
+  if (existingIndex !== -1) {
+    // 更新该记录的时间和 token
+    history[existingIndex].time = info.time;
+    history[existingIndex].token = info.token;
+    history[existingIndex].id = info.id; // 保持 id 一致或更新均可，这里更新为新的 id
+  } else {
+    // 新增记录
+    history.unshift(info);
+    if (history.length > MAX_HISTORY) history = history.slice(0, MAX_HISTORY);
+  }
+  
   await env.SESSION_KV.put(LOGIN_HISTORY_KEY, JSON.stringify(history));
+}
+
+// 更新指定 token 对应记录的最后活动时间
+async function updateLoginHistoryByToken(env, token) {
+  const raw = await env.SESSION_KV.get(LOGIN_HISTORY_KEY, 'json');
+  if (!raw) return;
+  let history = raw;
+  const index = history.findIndex(item => item.token === token);
+  if (index !== -1) {
+    history[index].time = new Date().toISOString();
+    await env.SESSION_KV.put(LOGIN_HISTORY_KEY, JSON.stringify(history));
+  }
 }
 
 async function getLoginHistory(env) {
@@ -98,7 +123,7 @@ class R2CompatibleClient {
       region: 'auto',
       endpoint: this.endpoint,
     });
-    this.bucketName = config.id; // 使用 id 作为真实桶名
+    this.bucketName = config.id;
   }
 
   async list({ prefix = '', delimiter = '/' } = {}) {
@@ -221,7 +246,6 @@ async function getBucketUsage(accountId, bucketName, apiToken) {
 // ========== Worker 主函数 ==========
 export default {
   async fetch(request, env) {
-    // CORS 配置
     const ALLOW_ORIGIN = env.ALLOW_ORIGIN || 'https://lkin.cn';
     const corsHeaders = {
       "Access-Control-Allow-Origin": ALLOW_ORIGIN,
@@ -266,13 +290,13 @@ export default {
       await env.SESSION_KV.put(token, "valid", { expirationTtl: 604800 });
       const cookie = `token=${token}; HttpOnly; Secure; SameSite=Strict; Max-Age=604800; Path=/`;
 
-      // 记录登录历史
+      // 记录登录历史（去重）
       const historyRecord = {
         id: crypto.randomUUID(),
         time: new Date().toISOString(),
         ua: request.headers.get('User-Agent') || '',
         ip: request.headers.get('CF-Connecting-IP') || '',
-        token: token // 存储完整 token，前端不显示
+        token: token
       };
       await addLoginHistory(env, historyRecord);
 
@@ -315,7 +339,7 @@ export default {
       return Response.json({ code: 200, msg: `密码已修改，已注销 ${deletedCount} 个会话` }, { headers: corsHeaders });
     }
 
-    // ---------- 全局鉴权（修改密码接口需要在验证旧密码后清除会话，因此不在此处拦截） ----------
+    // ---------- 全局鉴权 ----------
     if (path !== "/login" && path !== "/logout" && path !== "/admin/change-password") {
       const token = getToken();
       if (!token) {
@@ -327,10 +351,18 @@ export default {
       }
     }
 
+    // ---------- 更新会话活动时间（前端自动登录成功后调用） ----------
+    if (path === "/admin/update-session" && request.method === "POST") {
+      const token = getToken();
+      if (token) {
+        await updateLoginHistoryByToken(env, token);
+      }
+      return Response.json({ code: 200, msg: "OK" }, { headers: corsHeaders });
+    }
+
     // ========== 登录历史管理（需鉴权） ==========
     if (path === "/admin/login-history" && request.method === "GET") {
       const history = await getLoginHistory(env);
-      // 返回不包含 token 的数组
       const safeHistory = history.map(item => ({
         id: item.id,
         time: item.time,
