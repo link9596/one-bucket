@@ -37,28 +37,21 @@ async function hashPassword(pwd) {
 const LOGIN_HISTORY_KEY = 'login_history';
 const MAX_HISTORY = 25;
 
-// 新增或更新登录历史（去重）
 async function addLoginHistory(env, info) {
   const raw = await env.SESSION_KV.get(LOGIN_HISTORY_KEY, 'json');
   let history = raw || [];
-  
-  // 查找相同 IP 和 UA 的记录
   const existingIndex = history.findIndex(item => item.ip === info.ip && item.ua === info.ua);
   if (existingIndex !== -1) {
-    // 更新该记录的时间和 token
     history[existingIndex].time = info.time;
     history[existingIndex].token = info.token;
-    history[existingIndex].id = info.id; // 保持 id 一致或更新均可，这里更新为新的 id
+    history[existingIndex].id = info.id;
   } else {
-    // 新增记录
     history.unshift(info);
     if (history.length > MAX_HISTORY) history = history.slice(0, MAX_HISTORY);
   }
-  
   await env.SESSION_KV.put(LOGIN_HISTORY_KEY, JSON.stringify(history));
 }
 
-// 更新指定 token 对应记录的最后活动时间
 async function updateLoginHistoryByToken(env, token) {
   const raw = await env.SESSION_KV.get(LOGIN_HISTORY_KEY, 'json');
   if (!raw) return;
@@ -79,17 +72,14 @@ async function deleteLoginHistory(env, historyId) {
   const history = await getLoginHistory(env);
   const target = history.find(item => item.id === historyId);
   if (!target) return false;
-  // 删除对应会话 token
   if (target.token) {
     await env.SESSION_KV.delete(target.token);
   }
-  // 从历史中移除
   const newHistory = history.filter(item => item.id !== historyId);
   await env.SESSION_KV.put(LOGIN_HISTORY_KEY, JSON.stringify(newHistory));
   return true;
 }
 
-// 清除所有会话（修改密码时调用）
 async function revokeAllSessions(env) {
   let cursor;
   const keysToDelete = [];
@@ -101,12 +91,10 @@ async function revokeAllSessions(env) {
   if (keysToDelete.length > 0) {
     await Promise.all(keysToDelete.map(key => env.SESSION_KV.delete(key)));
   }
-  // 同时清空登录历史
   await env.SESSION_KV.put(LOGIN_HISTORY_KEY, JSON.stringify([]));
   return keysToDelete.length;
 }
 
-// 安全编码 S3 对象键
 function encodeS3Key(key) {
   return key.split('/').map(segment => encodeURIComponent(segment)).join('/');
 }
@@ -243,9 +231,27 @@ async function getBucketUsage(accountId, bucketName, apiToken) {
   return json.result?.payloadSize || null;
 }
 
+// ========== 静态资源扩展名列表 ==========
+const STATIC_EXTENSIONS = new Set([
+  '.css', '.js', '.mjs', '.json', '.xml', '.txt',
+  '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.webp',
+  '.woff', '.woff2', '.ttf', '.eot', '.otf',
+  '.html', '.htm' // 如果直接访问 html 文件，也按原路径代理
+]);
+
+function isStaticResource(pathname) {
+  const ext = pathname.split('.').pop();
+  return ext && STATIC_EXTENSIONS.has('.' + ext.toLowerCase());
+}
+
 // ========== Worker 主函数 ==========
 export default {
   async fetch(request, env) {
+    const url = new URL(request.url);
+    const path = url.pathname;
+    const method = request.method;
+
+    // 定义 CORS 头（仅用于 API 响应）
     const ALLOW_ORIGIN = env.ALLOW_ORIGIN || 'https://lkin.cn';
     const corsHeaders = {
       "Access-Control-Allow-Origin": ALLOW_ORIGIN,
@@ -256,13 +262,62 @@ export default {
       "Vary": "Origin"
     };
 
+    // OPTIONS 预检请求
     if (request.method === "OPTIONS") {
       return new Response(null, { status: 204, headers: corsHeaders });
     }
 
-    const url = new URL(request.url);
-    const path = url.pathname;
+    // ---------- 判断是否为 API 请求 ----------
+    function isApiRequest(path, method) {
+      const apiMap = {
+        '/login': ['POST'],
+        '/logout': ['POST'],
+        '/admin/change-password': ['POST'],
+        '/admin/buckets': ['GET', 'POST'],
+        '/admin/login-history': ['GET'],
+        '/admin/delete-login-history': ['POST'],
+        '/admin/update-session': ['POST'],
+        '/list': ['GET'],
+        '/upload': ['POST'],
+        '/mkdir': ['POST'],
+        '/del': ['DELETE'],
+        '/download': ['GET'],
+        '/read': ['GET'],
+        '/write': ['PUT'],
+        '/rename': ['POST'],
+        '/usage': ['GET'],
+      };
+      const methods = apiMap[path];
+      if (methods) return methods.includes(method);
+      if (path.startsWith('/admin/') && method === 'POST') return true;
+      return false;
+    }
 
+    // ---------- 非 API 请求：代理到前端（单页应用支持） ----------
+    if (!isApiRequest(path, method)) {
+      const frontendBase = 'https://link9596.github.io/one-bucket';
+      let targetPath = path;
+
+      // 如果是根路径，直接访问 index.html
+      if (path === '/') {
+        targetPath = '/index.html';
+      } else if (!isStaticResource(path)) {
+        // 非静态资源路径，返回 index.html（让前端路由处理）
+        targetPath = '/index.html';
+      }
+      // 否则保持原路径（静态资源）
+
+      const targetUrl = new URL(targetPath + url.search, frontendBase);
+      const proxyRequest = new Request(targetUrl.toString(), {
+        method: request.method,
+        headers: request.headers,
+        body: request.body,
+      });
+      // 直接转发，并保留响应状态
+      return fetch(proxyRequest);
+    }
+
+    // ---------- 以下是 API 处理逻辑（原有代码） ----------
     const getToken = () => {
       const cookie = request.headers.get('Cookie') || '';
       const cookieToken = cookie.match(/token=([^;]+)/)?.[1];
@@ -289,8 +344,6 @@ export default {
       const token = crypto.randomUUID();
       await env.SESSION_KV.put(token, "valid", { expirationTtl: 604800 });
       const cookie = `token=${token}; HttpOnly; Secure; SameSite=Strict; Max-Age=604800; Path=/`;
-
-      // 记录登录历史（去重）
       const historyRecord = {
         id: crypto.randomUUID(),
         time: new Date().toISOString(),
@@ -299,7 +352,6 @@ export default {
         token: token
       };
       await addLoginHistory(env, historyRecord);
-
       return new Response(JSON.stringify({ code: 200, msg: "登录成功" }), {
         headers: { ...corsHeaders, 'Set-Cookie': cookie }
       });
@@ -339,7 +391,7 @@ export default {
       return Response.json({ code: 200, msg: `密码已修改，已注销 ${deletedCount} 个会话` }, { headers: corsHeaders });
     }
 
-    // ---------- 全局鉴权 ----------
+    // ---------- 全局鉴权（除登录/登出/修改密码外） ----------
     if (path !== "/login" && path !== "/logout" && path !== "/admin/change-password") {
       const token = getToken();
       if (!token) {
@@ -351,7 +403,7 @@ export default {
       }
     }
 
-    // ---------- 更新会话活动时间（前端自动登录成功后调用） ----------
+    // ---------- 更新会话活动时间 ----------
     if (path === "/admin/update-session" && request.method === "POST") {
       const token = getToken();
       if (token) {
@@ -360,7 +412,7 @@ export default {
       return Response.json({ code: 200, msg: "OK" }, { headers: corsHeaders });
     }
 
-    // ========== 登录历史管理（需鉴权） ==========
+    // ---------- 登录历史管理 ----------
     if (path === "/admin/login-history" && request.method === "GET") {
       const history = await getLoginHistory(env);
       const safeHistory = history.map(item => ({
@@ -384,7 +436,7 @@ export default {
       return Response.json({ code: 200, msg: "已删除该登录会话，对应设备需要重新登录" }, { headers: corsHeaders });
     }
 
-    // ========== 配置管理接口 ==========
+    // ---------- 配置管理接口 ----------
     if (path === "/admin/buckets" && request.method === "GET") {
       const configs = await getBucketsConfig(env);
       const safe = configs.map(c => ({
@@ -426,7 +478,7 @@ export default {
       return Response.json({ code: 200, msg: "配置已更新" }, { headers: corsHeaders });
     }
 
-    // ========== 业务接口 ==========
+    // ---------- 业务接口 ----------
     const bucketId = url.searchParams.get('bucketId');
     if (!bucketId) {
       return Response.json({ code: 400, msg: "缺少 bucketId 参数" }, { status: 400, headers: corsHeaders });
@@ -605,6 +657,7 @@ export default {
       return Response.json({ code: 200, size: usage }, { headers: corsHeaders });
     }
 
+    // 如果没有任何 API 匹配，返回 404
     return Response.json({ msg: "接口不存在" }, { status: 404, headers: corsHeaders });
   }
 };
