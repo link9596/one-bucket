@@ -259,60 +259,57 @@ export default {
     };
     const isApi = apiMap[path]?.includes(method) || (path.startsWith('/admin/') && method === 'POST');
 
-    // ---- 非 API 请求：代理到 GitHub Pages 前端 ----
+    // ---- 非 API 请求：代理到 GitHub Pages 前端（SPA 模式） ----
     if (!isApi) {
-      const frontendBase = 'https://link9596.github.io/one-bucket'; // 你的前端仓库地址
-      const targetUrl = new URL(path + url.search, frontendBase);
-
-      const proxyRequest = new Request(targetUrl.toString(), {
-        method: request.method,
-        headers: request.headers,
-        body: request.body,
-      });
-
-      try {
-        const proxyResponse = await fetch(proxyRequest);
-
-        // 处理重定向（3xx）
-        if (proxyResponse.status >= 300 && proxyResponse.status < 400) {
-          const location = proxyResponse.headers.get('Location');
-          if (location) {
-            const locationUrl = new URL(location, frontendBase);
-            // 获取相对路径：去掉 frontendBase 的 pathname 部分
-            const basePath = new URL(frontendBase).pathname; // 如 "/one-bucket/"
-            // 确保 basePath 以 / 结尾
-            const basePathNormalized = basePath.endsWith('/') ? basePath : basePath + '/';
-            let relativePath = locationUrl.pathname;
-            if (relativePath.startsWith(basePathNormalized)) {
-              relativePath = '/' + relativePath.slice(basePathNormalized.length);
-            }
-            // 如果 relativePath 为空或只有 /，则保持 /
-            const newLocation = url.origin + (relativePath || '/') + locationUrl.search;
-            const headers = new Headers(proxyResponse.headers);
-            headers.set('Location', newLocation);
-            return new Response(proxyResponse.body, {
-              status: proxyResponse.status,
-              statusText: proxyResponse.statusText,
-              headers: headers,
-            });
-          }
-        }
-
-        // 对于 404，直接返回 GitHub 的 404 页面（如果你在仓库中放置了 404.html，它会显示你的 SPA 页面）
-        // 所以无需额外 fallback
-        const responseHeaders = new Headers(proxyResponse.headers);
-        responseHeaders.delete('content-security-policy');
-        return new Response(proxyResponse.body, {
-          status: proxyResponse.status,
-          statusText: proxyResponse.statusText,
-          headers: responseHeaders,
+      const frontendBase = 'https://link9596.github.io/one-bucket';
+      // 静态资源匹配：以 /file/ 开头，或常见扩展名
+      const isStatic = path.startsWith('/file/') || /\.(css|js|png|jpg|jpeg|gif|svg|ico|webp|woff2?|ttf|eot|json|xml|txt)$/.test(path);
+      
+      if (isStatic) {
+        // 直接代理静态资源
+        const targetUrl = new URL(path + url.search, frontendBase);
+        console.log(`[Proxy Static] Request path: ${path}, target: ${targetUrl.toString()}`);
+        const proxyRequest = new Request(targetUrl.toString(), {
+          method: request.method,
+          headers: request.headers,
+          body: request.body,
         });
-      } catch (error) {
-        return new Response('Proxy error: ' + error.message, { status: 502 });
+        try {
+          const response = await fetch(proxyRequest);
+          const headers = new Headers(response.headers);
+          headers.delete('content-security-policy');
+          console.log(`[Proxy Static] Response status: ${response.status}`);
+          return new Response(response.body, {
+            status: response.status,
+            statusText: response.statusText,
+            headers,
+          });
+        } catch (e) {
+          console.error(`[Proxy Static] Error: ${e.message}`);
+          return new Response('Static proxy error: ' + e.message, { status: 502 });
+        }
+      } else {
+        // SPA 路由：返回 index.html
+        const indexUrl = frontendBase + '/index.html';
+        console.log(`[SPA] Request path: ${path}, returning index.html from ${indexUrl}`);
+        try {
+          const indexResponse = await fetch(indexUrl);
+          const headers = new Headers(indexResponse.headers);
+          headers.set('Content-Type', 'text/html; charset=utf-8');
+          headers.delete('content-security-policy');
+          return new Response(indexResponse.body, {
+            status: 200, // 强制返回 200，让前端路由处理
+            headers,
+          });
+        } catch (e) {
+          console.error(`[SPA] Error: ${e.message}`);
+          return new Response('SPA fallback error: ' + e.message, { status: 502 });
+        }
       }
     }
 
     // ---------- 以下是原有 API 处理逻辑 ----------
+    console.log(`[API] Request path: ${path}, method: ${method}`);
     const ALLOW_ORIGIN = env.ALLOW_ORIGIN || 'https://link9596.github.io';
     const corsHeaders = {
       "Access-Control-Allow-Origin": ALLOW_ORIGIN,
