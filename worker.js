@@ -295,7 +295,7 @@ export default {
 
     // ---------- 非 API 请求：代理到前端（单页应用支持） ----------
     if (!isApiRequest(path, method)) {
-      const frontendBase = 'https://link9596.github.io/one-bucket';
+      const frontendBase = 'https://lkin.cn/r2';
       let targetPath = path;
 
       // 如果是根路径，直接访问 index.html
