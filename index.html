@@ -246,7 +246,7 @@
     #loginTip { margin-top: 12px; font-size: 0.8rem; color: var(--btn-danger); }
 
     .empty-row td { text-align: center; color: var(--text-muted); padding: 40px; }
-    .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: var(--toast-bg); color: var(--toast-color); padding: 8px 18px; border-radius: 40px; font-size: 0.8rem; z-index: 200; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+    .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: var(--toast-bg); color: var(--toast-color); padding: 8px 18px; border-radius: 40px; font-size: 0.8rem; z-index: 9999; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
 
     /* 模态框公用（带缩放动画） */
     .modal-overlay {
@@ -1421,7 +1421,7 @@ async function getFileList(path = currentPath) {
       if (json.folders.length + json.files.length === 0) {
         listDom.innerHTML = "<tr class='empty-row'><td colspan='4'>📭 当前目录为空</td></tr>";
       }
-      statusDom.innerText = `📁 ${json.folders.length} 个文件夹 · 📄 ${json.files.length} 个文件`;
+      statusDom.innerText = `📁 ${json.folders.length} · 📄 ${json.files.length}`;
     } catch (e) {
       statusDom.innerText = '加载失败：' + e.message;
       showToast('加载失败：' + e.message);
