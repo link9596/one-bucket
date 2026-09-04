@@ -1,39 +1,208 @@
-// worker.js
+// worker.js — 安全加固版（仅加密 secretAccessKey 和 apiToken，accessKeyId 明文）
 import { AwsClient } from 'aws4fetch';
 import { XMLParser } from 'fast-xml-parser';
 
-// ========== KV 操作辅助 ==========
-async function getBucketsConfig(env) {
-  const data = await env.BUCKET_CONFIG.get('buckets', 'json');
-  return data || [];
+// ==================== 工具函数 ====================
+
+function bufferToHex(buffer) {
+  return Array.from(new Uint8Array(buffer))
+    .map(b => b.toString(16).padStart(2, '0'))
+    .join('');
 }
 
-async function saveBucketsConfig(env, config) {
-  await env.BUCKET_CONFIG.put('buckets', JSON.stringify(config));
+function hexToBuffer(hex) {
+  if (hex.length % 2 !== 0) throw new Error('Invalid hex string');
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < hex.length; i += 2) {
+    bytes[i / 2] = parseInt(hex.substr(i, 2), 16);
+  }
+  return bytes;
+}
+
+// ----- 从 MASTER_KEY 派生 AES 密钥（SHA-256） -----
+async function deriveMasterKey(masterKeyString) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(masterKeyString);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  return new Uint8Array(hashBuffer); // 32 字节
+}
+
+// ----- AES-GCM 加密（返回 { iv, ciphertext } 十六进制） -----
+async function encryptText(plaintext, masterKeyString) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(plaintext);
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const keyBytes = await deriveMasterKey(masterKeyString);
+  const key = await crypto.subtle.importKey(
+    'raw',
+    keyBytes,
+    { name: 'AES-GCM' },
+    false,
+    ['encrypt']
+  );
+  const ciphertext = await crypto.subtle.encrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    data
+  );
+  return {
+    iv: bufferToHex(iv),
+    ciphertext: bufferToHex(new Uint8Array(ciphertext)),
+  };
+}
+
+// ----- AES-GCM 解密 -----
+async function decryptText(encryptedObj, masterKeyString) {
+  const iv = hexToBuffer(encryptedObj.iv);
+  const ciphertext = hexToBuffer(encryptedObj.ciphertext);
+  const keyBytes = await deriveMasterKey(masterKeyString);
+  const key = await crypto.subtle.importKey(
+    'raw',
+    keyBytes,
+    { name: 'AES-GCM' },
+    false,
+    ['decrypt']
+  );
+  const plaintext = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv },
+    key,
+    ciphertext
+  );
+  return new TextDecoder().decode(plaintext);
+}
+
+// ----- 路径安全规范化（防止遍历） -----
+function sanitizeKey(key) {
+  if (typeof key !== 'string') throw new Error('Invalid key');
+  if (key.includes('../') || key.includes('..\\') || key.startsWith('/')) {
+    throw new Error('Path traversal not allowed');
+  }
+  const parts = key.split('/').filter(p => p !== '' && p !== '.');
+  if (parts.some(p => p === '..')) {
+    throw new Error('Path traversal not allowed');
+  }
+  return parts.join('/');
+}
+
+// ----- 密码哈希（PBKDF2 + 随机盐） -----
+async function hashPassword(pwd, salt) {
+  const encoder = new TextEncoder();
+  let saltBuffer;
+  if (salt) {
+    saltBuffer = hexToBuffer(salt);
+  } else {
+    saltBuffer = crypto.getRandomValues(new Uint8Array(16));
+  }
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(pwd),
+    'PBKDF2',
+    false,
+    ['deriveBits']
+  );
+  const hashBuffer = await crypto.subtle.deriveBits(
+    {
+      name: 'PBKDF2',
+      salt: saltBuffer,
+      iterations: 100000,
+      hash: 'SHA-256',
+    },
+    keyMaterial,
+    256
+  );
+  const hashHex = bufferToHex(new Uint8Array(hashBuffer));
+  return {
+    salt: bufferToHex(saltBuffer),
+    hash: hashHex,
+  };
+}
+
+// 安全比较（时序攻击防护）
+async function timingSafeEqual(a, b) {
+  const encoder = new TextEncoder();
+  const aBuf = encoder.encode(a);
+  const bBuf = encoder.encode(b);
+  if (aBuf.length !== bBuf.length) return false;
+  return await crypto.subtle.timingSafeEqual(aBuf, bBuf);
+}
+
+// ==================== KV 操作 ====================
+
+// 读取桶配置（自动解密 secretAccessKey 和 apiToken，accessKeyId 原样返回）
+async function getBucketsConfig(env) {
+  const masterKey = env.MASTER_KEY;
+  if (!masterKey) throw new Error('MASTER_KEY not set');
+  const raw = await env.BUCKET_CONFIG.get('buckets', 'json');
+  if (!raw) return [];
+
+  const decrypted = await Promise.all(
+    raw.map(async (item) => {
+      const result = { ...item };
+      // 解密 secretAccessKey 和 apiToken
+      for (const field of ['secretAccessKey', 'apiToken']) {
+        const val = item[field];
+        if (val && typeof val === 'object' && val.iv) {
+          try {
+            result[field] = await decryptText(val, masterKey);
+          } catch (e) {
+            console.error(`Failed to decrypt ${field} for bucket ${item.id}`, e);
+            result[field] = ''; // 解密失败置空
+          }
+        }
+        // 如果已经是明文字符串（可能是旧数据），保留（但按需求无需兼容，这里仅防御）
+      }
+      // accessKeyId 保持原样（明文）
+      return result;
+    })
+  );
+  return decrypted;
+}
+
+// 保存桶配置（仅加密 secretAccessKey 和 apiToken，accessKeyId 明文存储）
+async function saveBucketsConfig(env, configs) {
+  const masterKey = env.MASTER_KEY;
+  if (!masterKey) throw new Error('MASTER_KEY not set');
+
+  const encrypted = await Promise.all(
+    configs.map(async (item) => {
+      const result = { ...item };
+      // 加密敏感字段（仅 secretAccessKey 和 apiToken）
+      for (const field of ['secretAccessKey', 'apiToken']) {
+        const val = item[field];
+        if (typeof val === 'string' && val.trim() !== '') {
+          result[field] = await encryptText(val, masterKey);
+        } else {
+          // 如果值为空或非字符串，删除此属性（避免存储空加密对象）
+          delete result[field];
+        }
+      }
+      // accessKeyId 保持明文，直接保留
+      return result;
+    })
+  );
+  await env.BUCKET_CONFIG.put('buckets', JSON.stringify(encrypted));
 }
 
 function getBucketById(config, id) {
   return config.find(b => b.id === id);
 }
 
-// ========== 密码哈希管理 ==========
+// ----- 管理员密码（存储为 { salt, hash }） -----
 async function getAdminPwdHash(env) {
-  return await env.BUCKET_CONFIG.get('admin_pwd_hash');
+  const raw = await env.BUCKET_CONFIG.get('admin_pwd');
+  if (!raw) return null;
+  try {
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
 }
 
-async function setAdminPwdHash(env, hash) {
-  await env.BUCKET_CONFIG.put('admin_pwd_hash', hash);
+async function setAdminPwdHash(env, pwdObj) {
+  await env.BUCKET_CONFIG.put('admin_pwd', JSON.stringify(pwdObj));
 }
 
-async function hashPassword(pwd) {
-  const data = new TextEncoder().encode(pwd);
-  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
-  return Array.from(new Uint8Array(hashBuffer))
-    .map(b => b.toString(16).padStart(2, '0'))
-    .join('');
-}
-
-// ========== 登录历史管理 ==========
+// ----- 登录历史 -----
 const LOGIN_HISTORY_KEY = 'login_history';
 const MAX_HISTORY = 25;
 
@@ -95,11 +264,14 @@ async function revokeAllSessions(env) {
   return keysToDelete.length;
 }
 
+// 安全的 URL 编码
 function encodeS3Key(key) {
-  return key.split('/').map(segment => encodeURIComponent(segment)).join('/');
+  const safe = sanitizeKey(key);
+  return safe.split('/').map(segment => encodeURIComponent(segment)).join('/');
 }
 
-// ========== 存储客户端封装 ==========
+// ==================== 存储客户端 ====================
+
 class R2CompatibleClient {
   constructor(config) {
     this.config = config;
@@ -115,7 +287,8 @@ class R2CompatibleClient {
   }
 
   async list({ prefix = '', delimiter = '/' } = {}) {
-    const url = `${this.endpoint}/${encodeURIComponent(this.bucketName)}?list-type=2&prefix=${encodeS3Key(prefix)}&delimiter=${encodeURIComponent(delimiter)}`;
+    const safePrefix = prefix ? sanitizeKey(prefix) : '';
+    const url = `${this.endpoint}/${encodeURIComponent(this.bucketName)}?list-type=2&prefix=${encodeS3Key(safePrefix)}&delimiter=${encodeURIComponent(delimiter)}`;
     const resp = await this.client.fetch(url, { method: 'GET' });
     if (!resp.ok) throw new Error(`List failed: ${resp.status}`);
     const text = await resp.text();
@@ -151,7 +324,8 @@ class R2CompatibleClient {
   }
 
   async put(key, body, { httpMetadata = {} } = {}) {
-    const url = `${this.endpoint}/${encodeURIComponent(this.bucketName)}/${encodeS3Key(key)}`;
+    const safeKey = sanitizeKey(key);
+    const url = `${this.endpoint}/${encodeURIComponent(this.bucketName)}/${encodeS3Key(safeKey)}`;
     const resp = await this.client.fetch(url, {
       method: 'PUT',
       body: body,
@@ -161,7 +335,8 @@ class R2CompatibleClient {
   }
 
   async get(key) {
-    const url = `${this.endpoint}/${encodeURIComponent(this.bucketName)}/${encodeS3Key(key)}`;
+    const safeKey = sanitizeKey(key);
+    const url = `${this.endpoint}/${encodeURIComponent(this.bucketName)}/${encodeS3Key(safeKey)}`;
     const resp = await this.client.fetch(url, { method: 'GET' });
     if (resp.status === 404) return null;
     if (!resp.ok) throw new Error(`Get failed: ${resp.status}`);
@@ -196,14 +371,16 @@ class R2CompatibleClient {
   }
 
   async delete(key) {
-    const url = `${this.endpoint}/${encodeURIComponent(this.bucketName)}/${encodeS3Key(key)}`;
+    const safeKey = sanitizeKey(key);
+    const url = `${this.endpoint}/${encodeURIComponent(this.bucketName)}/${encodeS3Key(safeKey)}`;
     const resp = await this.client.fetch(url, { method: 'DELETE' });
     if (resp.status === 404) return;
     if (!resp.ok) throw new Error(`Delete failed: ${resp.status}`);
   }
 
   async head(key) {
-    const url = `${this.endpoint}/${encodeURIComponent(this.bucketName)}/${encodeS3Key(key)}`;
+    const safeKey = sanitizeKey(key);
+    const url = `${this.endpoint}/${encodeURIComponent(this.bucketName)}/${encodeS3Key(safeKey)}`;
     const resp = await this.client.fetch(url, { method: 'HEAD' });
     if (resp.status === 404) return null;
     if (resp.status === 200) return { size: parseInt(resp.headers.get('Content-Length') || '0') };
@@ -211,7 +388,8 @@ class R2CompatibleClient {
   }
 }
 
-// ========== 获取桶实例 ==========
+// ==================== 实例工厂 ====================
+
 async function getBucketInstance(env, bucketId) {
   const configs = await getBucketsConfig(env);
   const conf = getBucketById(configs, bucketId);
@@ -219,7 +397,8 @@ async function getBucketInstance(env, bucketId) {
   return new R2CompatibleClient(conf);
 }
 
-// ========== 获取桶用量 ==========
+// ==================== 用量查询 ====================
+
 async function getBucketUsage(accountId, bucketName, apiToken) {
   if (!apiToken) return null;
   const url = `https://api.cloudflare.com/client/v4/accounts/${accountId}/r2/buckets/${bucketName}/usage`;
@@ -231,20 +410,26 @@ async function getBucketUsage(accountId, bucketName, apiToken) {
   return json.result?.payloadSize || null;
 }
 
-// ========== Worker 主函数 ==========
+// ==================== Worker 主逻辑 ====================
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
     const path = url.pathname;
     const method = request.method;
 
-    // ---- 前端基础地址（优先使用环境变量 ADMIN_URL） ----
+    // 检查 MASTER_KEY 是否设置
+    if (!env.MASTER_KEY) {
+      return new Response('MASTER_KEY environment variable is not set', { status: 500 });
+    }
+
+    // ---- 前端基础地址 ----
     const frontendBase = env.ADMIN_URL || 'https://link9596.github.io/one-bucket';
 
-    // ---- 检查密码是否已设置（无需鉴权） ----
+    // ---- 密码状态（无需鉴权） ----
     if (path === "/admin/password-status" && method === "GET") {
-      const storedHash = await getAdminPwdHash(env);
-      return Response.json({ set: !!storedHash }, {
+      const stored = await getAdminPwdHash(env);
+      return Response.json({ set: !!stored }, {
         headers: { 'Content-Type': 'application/json;charset=utf-8' }
       });
     }
@@ -270,13 +455,10 @@ export default {
     };
     const isApi = apiMap[path]?.includes(method) || (path.startsWith('/admin/') && method === 'POST');
 
-    // ---- 非 API 请求：代理到前端（SPA 模式） ----
+    // ---- 非 API 请求：代理前端 ----
     if (!isApi) {
-      // 静态资源匹配：以 /file/ 开头，或常见扩展名
       const isStatic = path.startsWith('/file/') || /\.(css|js|png|jpg|jpeg|gif|svg|ico|webp|woff2?|ttf|eot|json|xml|txt)$/.test(path);
-      
       if (isStatic) {
-        // 代理静态资源
         const targetUrl = new URL(path + url.search, frontendBase);
         const proxyRequest = new Request(targetUrl.toString(), {
           method: request.method,
@@ -297,7 +479,6 @@ export default {
           return new Response('Static proxy error: ' + e.message, { status: 502 });
         }
       } else {
-        // SPA 路由：返回 index.html（强制 200）
         const indexUrl = frontendBase + '/index.html';
         try {
           const indexResponse = await fetch(indexUrl);
@@ -315,7 +496,7 @@ export default {
       }
     }
 
-    // ---- API 处理（无 CORS，同源） ----
+    // ---- 工具函数：获取 token ----
     const getToken = () => {
       const cookie = request.headers.get('Cookie') || '';
       const cookieToken = cookie.match(/token=([^;]+)/)?.[1];
@@ -325,18 +506,20 @@ export default {
       return null;
     };
 
-    // 登录
+    // ---- 登录 ----
     if (path === "/login" && method === "POST") {
       const { pwd } = await request.json();
       if (!pwd) {
         return Response.json({ code: 400, msg: "请输入密码" }, { status: 400 });
       }
-      const storedHash = await getAdminPwdHash(env);
-      if (!storedHash) {
+      const stored = await getAdminPwdHash(env);
+      if (!stored) {
         return Response.json({ code: 503, msg: "管理员密码尚未设置，请通过修改密码接口初始化" }, { status: 503 });
       }
-      const inputHash = await hashPassword(pwd);
-      if (inputHash !== storedHash) {
+      const { salt, hash: storedHash } = stored;
+      const { hash: inputHash } = await hashPassword(pwd, salt);
+      const isMatch = await timingSafeEqual(inputHash, storedHash);
+      if (!isMatch) {
         return Response.json({ code: 401, msg: "密码错误" }, { status: 401 });
       }
       const token = crypto.randomUUID();
@@ -360,7 +543,7 @@ export default {
       });
     }
 
-    // 登出
+    // ---- 登出 ----
     if (path === "/logout" && method === "POST") {
       const token = getToken();
       if (token) await env.SESSION_KV.delete(token);
@@ -372,31 +555,33 @@ export default {
       });
     }
 
-    // 修改密码
+    // ---- 修改密码 ----
     if (path === "/admin/change-password" && method === "POST") {
       const { oldPwd, newPwd } = await request.json();
       if (!newPwd || newPwd.length < 6) {
         return Response.json({ code: 400, msg: "新密码长度至少6位" }, { status: 400 });
       }
-      const storedHash = await getAdminPwdHash(env);
-      if (storedHash) {
+      const stored = await getAdminPwdHash(env);
+      if (stored) {
         if (!oldPwd) {
           return Response.json({ code: 400, msg: "请输入旧密码" }, { status: 400 });
         }
-        const oldHash = await hashPassword(oldPwd);
-        if (oldHash !== storedHash) {
+        const { salt, hash: storedHash } = stored;
+        const { hash: inputHash } = await hashPassword(oldPwd, salt);
+        const isMatch = await timingSafeEqual(inputHash, storedHash);
+        if (!isMatch) {
           return Response.json({ code: 401, msg: "旧密码错误" }, { status: 401 });
         }
       }
-      const newHash = await hashPassword(newPwd);
-      await setAdminPwdHash(env, newHash);
+      const newHashObj = await hashPassword(newPwd);
+      await setAdminPwdHash(env, newHashObj);
       const deletedCount = await revokeAllSessions(env);
       return Response.json({ code: 200, msg: `密码已修改，已注销 ${deletedCount} 个会话` }, {
         headers: { 'Content-Type': 'application/json;charset=utf-8' }
       });
     }
 
-    // 全局鉴权（登录、登出、改密已提前处理）
+    // ---- 全局鉴权（除登录/登出/改密外） ----
     if (path !== "/login" && path !== "/logout" && path !== "/admin/change-password") {
       const token = getToken();
       if (!token) {
@@ -408,7 +593,7 @@ export default {
       }
     }
 
-    // 更新会话
+    // ---- 更新会话 ----
     if (path === "/admin/update-session" && method === "POST") {
       const token = getToken();
       if (token) {
@@ -419,7 +604,7 @@ export default {
       });
     }
 
-    // 登录历史
+    // ---- 登录历史 ----
     if (path === "/admin/login-history" && method === "GET") {
       const history = await getLoginHistory(env);
       const safeHistory = history.map(item => ({
@@ -447,7 +632,7 @@ export default {
       });
     }
 
-    // 桶配置管理
+    // ---- 桶配置管理 ----
     if (path === "/admin/buckets" && method === "GET") {
       const configs = await getBucketsConfig(env);
       const safe = configs.map(c => ({
@@ -455,7 +640,7 @@ export default {
         name: c.name,
         accountId: c.accountId,
         endpoint: c.endpoint,
-        accessKeyId: c.accessKeyId,
+        accessKeyId: c.accessKeyId,        // 明文
         hasSecret: !!c.secretAccessKey,
         hasToken: !!c.apiToken,
         publicDomain: c.publicDomain || ''
@@ -469,6 +654,7 @@ export default {
       const body = await request.json();
       const newConfigs = body.data || [];
       const oldConfigs = await getBucketsConfig(env);
+      // 合并（保留未提供的加密字段，避免覆盖）
       const merged = newConfigs.map(newItem => {
         const oldItem = oldConfigs.find(o => o.id === newItem.id);
         return {
@@ -476,7 +662,7 @@ export default {
           name: newItem.name,
           accountId: newItem.accountId,
           endpoint: newItem.endpoint,
-          accessKeyId: newItem.accessKeyId,
+          accessKeyId: newItem.accessKeyId,   // 明文直接覆盖
           secretAccessKey: newItem.secretAccessKey || oldItem?.secretAccessKey || '',
           apiToken: newItem.apiToken || oldItem?.apiToken || '',
           publicDomain: newItem.publicDomain || oldItem?.publicDomain || ''
@@ -493,7 +679,7 @@ export default {
       });
     }
 
-    // ========== 业务接口 ==========
+    // ==================== 业务接口 ====================
     const bucketId = url.searchParams.get('bucketId');
     if (!bucketId) {
       return Response.json({ code: 400, msg: "缺少 bucketId 参数" }, { status: 400 });
