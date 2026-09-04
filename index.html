@@ -1,0 +1,1747 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <link rel="shortcut icon" sizes="128x128" href="/file/favicon.png">
+  <title>私有云</title>
+  <style>
+    :root {
+      --bg-body: #f5f7fb;
+      --bg-card: #ffffff;
+      --bg-path: #f1f5f9;
+      --bg-input: #ffffff;
+      --bg-table-header: #f8fafc;
+      --bg-progress: #f1f5f9;
+      --text-primary: #1e293b;
+      --text-secondary: #475569;
+      --text-muted: #64748b;
+      --border-light: #e2e8f0;
+      --border-table: #eef2f6;
+      --btn-primary: #3b82f6;
+      --btn-primary-hover: #2563eb;
+      --btn-upload: #10b981;
+      --btn-upload-hover: #059669;
+      --btn-danger: #ef4444;
+      --btn-danger-hover: #dc2626;
+      --btn-success: #10b981;
+      --btn-success-hover: #059669;
+      --btn-purple: #8b5cf6;
+      --btn-purple-hover: #7c3aed;
+      --btn-gray: #64748b;
+      --btn-gray-hover: #475569;
+      --link-color: #2563eb;
+      --progress-bg: #e2e8f0;
+      --progress-fill: linear-gradient(90deg, #3b82f6, #60a5fa);
+      --copy-btn-bg: #e0e7ff;
+      --copy-btn-color: #3730a3;
+      --download-btn-bg: #e6f0ff;
+      --download-btn-color: #1d4ed8;
+      --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.05);
+      --toast-bg: #1e293b;
+      --toast-color: #ffffff;
+      --scroll-bar:#c4cbd5;
+      --scroll-bar-hover:#a0aab9;
+    }
+
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-body: #0f172a;
+        --bg-card: #1e293b;
+        --bg-path: #334155;
+        --bg-input: #334155;
+        --bg-table-header: #334155;
+        --bg-progress: #334155;
+        --text-primary: #f1f5f9;
+        --text-secondary: #cbd5e1;
+        --text-muted: #94a3b8;
+        --border-light: #475569;
+        --border-table: #334155;
+        --btn-primary: #3b82f666;
+        --btn-primary-hover: #60a5fa;
+        --btn-upload: #10b981;
+        --btn-upload-hover: #34d399;
+        --btn-danger: #ef4444;
+        --btn-danger-hover: #f87171;
+        --btn-success: #10b981;
+        --btn-success-hover: #34d399;
+        --btn-purple: #8b5cf652;
+        --btn-purple-hover: #a78bfa4d;
+        --btn-gray: #64748b;
+        --btn-gray-hover: #94a3b8;
+        --link-color: #60a5fa;
+        --progress-bg: #475569;
+        --progress-fill: linear-gradient(90deg, #60a5fa, #93c5fd);
+        --copy-btn-bg: #4c1d95;
+        --copy-btn-color: #c4b5fd;
+        --download-btn-bg: #1e3a8a;
+        --download-btn-color: #93c5fd;
+        --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3);
+        --shadow-md: 0 4px 20px rgba(0, 0, 0, 0.3);
+        --toast-bg: #0f172a;
+        --toast-color: #f1f5f9;
+        --scroll-bar:#3a495f;
+        --scroll-bar-hover:#556883;
+      }
+    }
+
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    body {
+      background: var(--bg-body);
+      padding: 16px;
+      min-height: 100vh;
+      transition: background-color 0.3s ease;
+    }
+
+/* 全局滚动条样式 */
+html {
+  scrollbar-width: thin;
+  scrollbar-color: var(--scroll-bar) transparent;
+}
+
+/* WebKit 浏览器（Edge、Chrome、Safari） */
+::-webkit-scrollbar {
+  width: 4px;
+  height: 4px;
+  background: transparent;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+  border-radius: 2px;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--scroll-bar);
+  border-radius: 2px;
+  transition: background 0.2s;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--scroll-bar-hover);
+}
+
+/* 可选：调整滚动条角落 */
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+    .wrap {
+      max-width: 1200px;
+      margin: 0 auto;
+      background: var(--bg-card);
+      border-radius: 20px;
+      box-shadow: var(--shadow-md);
+      padding: 20px 16px;
+      display: none;
+      transition: background-color 0.3s ease;
+      opacity: 0;
+      transform: translateY(20px);
+    }
+    .wrap.visible {
+      opacity: 1;
+      transform: translateY(0);
+      transition: opacity 0.5s ease, transform 0.5s ease;
+    }
+
+    h2 { font-size: 1.5rem; margin-bottom: 16px; color: var(--text-primary); }
+
+    .top-bar { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; margin-bottom: 20px; }
+    @media (max-width: 640px) {
+      .top-bar input[type="text"], .top-bar input[type="file"] { flex: 1 1 100%; width: 100%; }
+      .top-bar button { flex: 1 1 auto; }
+    }
+
+    .path-bar {
+      background: var(--bg-path); padding: 10px 12px; border-radius: 12px; margin-bottom: 16px;
+      font-size: 0.9rem; word-break: break-all; overflow-x: auto; white-space: nowrap;
+      -webkit-overflow-scrolling: touch;
+    }
+    .path-bar a { color: var(--link-color); text-decoration: none; margin: 0 2px; cursor: pointer; }
+
+    .status-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
+    .tip { font-size: 0.8rem; color: var(--text-secondary); background: var(--bg-progress); padding: 8px 12px; border-radius: 20px; }
+    .refresh-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--bg-progress); border: none; cursor: pointer; color: var(--text-secondary); transition: all 0.2s; padding:0px;}
+    .refresh-btn:hover { background: var(--border-light); color: var(--text-primary); }
+    .refresh-btn:active { transform: rotate(180deg); }
+    .refresh-btn svg { width: 18px; height: 18px; }
+
+    input, button {
+      padding: 10px 14px; border-radius: 12px; font-size: 0.9rem; border: 1px solid var(--border-light);
+      background: var(--bg-input); color: var(--text-primary); transition: all 0.2s;
+    }
+    input:focus { outline: none; border-color: var(--btn-primary); box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+    input::placeholder { color: var(--text-muted); }
+    button { background: var(--btn-primary); color: white; border: none; font-weight: 500; cursor: pointer; box-shadow: var(--shadow-sm); }
+    button:active { transform: scale(0.97); }
+    .upload-btn { background: var(--btn-upload); } .upload-btn:hover { background: var(--btn-upload-hover); }
+    .del-btn { background: var(--btn-danger); } .del-btn:hover { background: var(--btn-danger-hover); }
+    .mkdir-btn { background: var(--btn-success); } .mkdir-btn:hover { background: var(--btn-success-hover); }
+    .export-btn { background: var(--btn-purple); } .export-btn:hover { background: var(--btn-purple-hover); }
+
+    .upload-progress-container { background: var(--bg-progress); border-radius: 15px; padding: 12px 16px; margin-top: 10px; margin-bottom: 10px; display: none; flex-direction: column; gap: 8px; }
+    .progress-item { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+    .file-label { font-size: 0.8rem; color: var(--text-primary); width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .progress-bar-bg { flex: 1; height: 8px; background-color: var(--progress-bg); border-radius: 10px; overflow: hidden; }
+    .progress-bar-fill { width: 0%; height: 100%; background: var(--progress-fill); border-radius: 10px; transition: width 0.3s cubic-bezier(0.2, 0.9, 0.4, 1.1); }
+    .progress-bar-fill.uploading { background-image: repeating-linear-gradient(45deg, rgba(96,165,250,1) 0px, rgba(96,165,250,1) 10px, rgba(255,255,255,1) 10px, rgba(255,255,255,1) 20px); background-size: 28px 100%; animation: moveStripes 0.8s linear infinite; }
+    @keyframes moveStripes { 0% { background-position: 0 0; } 100% { background-position: 28px 0; } }
+    .progress-percent { font-size: 0.8rem; color: var(--text-primary); min-width: 45px; text-align: right; }
+    .upload-status-icon { width: 20px; text-align: center; }
+    .pulse-dot { display: inline-block; width: 10px; height: 10px; background-color: var(--btn-primary); border-radius: 50%; animation: pulse 1.2s infinite; }
+    @keyframes pulse { 0% { opacity: 0.4; transform: scale(0.8); } 70% { opacity: 1; transform: scale(1.2); } 100% { opacity: 0.4; transform: scale(0.8); } }
+
+    .table-wrapper { overflow-x: auto; -webkit-overflow-scrolling: touch; margin-top: 12px; border-radius: 16px; border: 1px solid var(--border-table); }
+    table { width: 100%; border-collapse: collapse; min-width: 550px; }
+    th, td { padding: 12px 10px; text-align: left; border-bottom: 1px solid var(--border-table); font-size: 0.85rem; vertical-align: middle; color: var(--text-primary); }
+    th { background: var(--bg-table-header); font-weight: 600; }
+    td:first-child, th:first-child { word-break: break-word; max-width: 180px; }
+    @media (max-width: 640px) { td:first-child, th:first-child { max-width: 240px; min-width: 160px; } }
+    td:first-child a { display: inline-block; vertical-align: middle; line-height: 1.4; color: var(--link-color); text-decoration: none; cursor: pointer; }
+    td:first-child span { display: inline-block; vertical-align: middle; line-height: 1.4; color: var(--text-primary); cursor: pointer; }
+    td:last-child { white-space: nowrap; }
+    td button, td a { display: inline-block; padding: 6px 10px; margin: 0 4px 4px 0; font-size: 0.75rem; border-radius: 20px; text-decoration: none; border: none; cursor: pointer; transition: all 0.2s; }
+    td a { background: var(--download-btn-bg); color: var(--download-btn-color); }
+    td button.copy-btn { background: var(--copy-btn-bg); color: var(--copy-btn-color); }
+    td button.del-btn { background: var(--btn-danger); color: white; }
+    td button.del-btn:hover { background: var(--btn-danger-hover); }
+
+    .login-box { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.6); display: flex; align-items: center; justify-content: center; backdrop-filter: blur(4px); z-index: 100; }
+    .login-inner { background: var(--bg-card); padding: 28px 24px; border-radius: 32px; width: 90%; max-width: 340px; text-align: center; box-shadow: var(--shadow-md); }
+    .login-inner h3 { font-size: 1.6rem; margin-bottom: 20px; color: var(--text-primary); }
+    .login-inner input { width: 100%; padding: 14px; margin-bottom: 16px; border-radius: 40px; border: 1px solid var(--border-light); background: var(--bg-input); color: var(--text-primary); font-size: 1rem; }
+    .login-inner button { width: 100%; padding: 12px; background: var(--btn-primary); font-size: 1rem; border-radius: 40px; }
+    #loginTip { margin-top: 12px; font-size: 0.8rem; color: var(--btn-danger); }
+
+    .empty-row td { text-align: center; color: var(--text-muted); padding: 40px; }
+    .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: var(--toast-bg); color: var(--toast-color); padding: 8px 18px; border-radius: 40px; font-size: 0.8rem; z-index: 200; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
+
+    /* 模态框公用（带缩放动画） */
+    .modal-overlay {
+      display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.6); z-index: 300; align-items: center; justify-content: center;
+      opacity: 0; visibility: hidden; pointer-events: none;
+      transition: opacity 0.3s ease, visibility 0.3s;
+    }
+    .modal-overlay.active { opacity: 1; visibility: visible; pointer-events: auto; }
+    .modal-content {
+      background: var(--bg-card); border-radius: 16px; width: 90%; max-width: 800px; padding: 20px;
+      box-shadow: var(--shadow-md); max-height: 90vh; overflow-y: auto;
+      transform: scale(0.9); transition: transform 0.3s ease;
+    }
+    .modal-overlay.active .modal-content { transform: scale(1); }
+    .modal-content h3 { color: var(--text-primary); margin-bottom: 10px; }
+    .modal-actions { margin-top: 15px; display: flex; gap: 10px; justify-content: flex-end; border-top: 1px solid var(--border-light); padding-top: 15px; }
+
+    /* 桶配置表单网格：桌面端两列 */
+    .bucket-config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    @media (max-width: 768px) {
+      .bucket-config-grid { grid-template-columns: 1fr; }
+      .bucket-config-grid > * { grid-column: span 1 !important; }
+      .usage-grid { grid-template-columns: 1fr !important; }
+    }
+
+    /* 全屏加载动画覆盖层 */
+    .loading-overlay {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: #1e293b; display: flex; align-items: center; justify-content: center;
+      z-index: 999; flex-direction: column; transition: opacity 0.4s ease; opacity: 1;
+    }
+    .loading-overlay.fade-out { opacity: 0; pointer-events: none; }
+    .loading-brand { display: flex; align-items: center; gap: 12px; margin-bottom: 30px; }
+    .loading-brand svg { width: 48px; height: 48px; fill: #ffffff; }
+    .loading-brand span { font-size: 2rem; font-weight: 700; color: #ffffff; }
+    .loading-dots svg { width: 32px; height: 32px; fill: #ffffff; color: #ffffff; }
+
+    /* 自定义桶选择下拉 */
+    .custom-select { position: relative; flex: 1; min-width: 150px; user-select: none; }
+    .custom-select-trigger { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--border-light); background: var(--bg-input); color: var(--text-primary); cursor: pointer; transition: border-color 0.2s, box-shadow 0.2s; }
+    .custom-select-trigger:hover { border-color: var(--btn-primary); }
+    .custom-select-trigger .arrow { width: 12px; height: 12px; transition: transform 0.2s; }
+    .custom-select.open .arrow { transform: rotate(180deg); }
+    .custom-select-options { position: absolute; top: calc(100% + 4px); left: 0; right: 0; background: var(--bg-card); border-radius: 12px; border: 1px solid var(--border-light); box-shadow: var(--shadow-md); overflow: hidden; max-height: 0; opacity: 0; transform: scaleY(0.8); transform-origin: top center; transition: max-height 0.25s ease, opacity 0.25s ease, transform 0.25s ease; z-index: 500; }
+    .custom-select.open .custom-select-options { max-height: 300px; opacity: 1; transform: scaleY(1); }
+    .custom-select-option { padding: 10px 14px; cursor: pointer; transition: background-color 0.15s; color: var(--text-primary); font-size: 0.9rem; }
+    .custom-select-option:hover { background: var(--bg-progress); }
+    .custom-select-option.selected { background: var(--bg-progress); font-weight: 600; }
+
+    /* 桶卡片列表样式 */
+    .bucket-card-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; padding:5px;}
+    @media (max-width: 480px) { .bucket-card-list { grid-template-columns: 1fr; } }
+    .bucket-card {
+      background: var(--bg-card); border: 1px solid var(--border-light); border-radius: 12px;
+      padding: 16px; cursor: pointer; transition: transform 0.15s, box-shadow 0.15s;
+      position: relative; min-height: 120px; display: flex; flex-direction: column;
+    }
+    .bucket-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-md); }
+    .bucket-card .card-header { display: flex; justify-content: space-between; align-items: flex-start; }
+    .bucket-card .card-title { font-size: 1.1rem; font-weight: 600; color: var(--text-primary); }
+    .bucket-card .card-bucket-name { font-size: 0.8rem; color: var(--text-muted); margin-top: 4px; }
+    .bucket-card .card-domain { font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px; word-break: break-all; }
+    .bucket-card .card-footer { margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end; }
+    .bucket-card .card-usage { font-size: 0.75rem; color: var(--text-secondary); }
+    .bucket-card .delete-icon {
+      position: absolute; bottom: 12px; right: 12px; background: none; border: none; cursor: pointer;
+      color: var(--text-muted); transition: color 0.2s; padding: 4px; box-shadow: none;
+    }
+    .bucket-card .delete-icon:hover { color: var(--btn-danger); }
+
+    /* 添加桶卡片样式 */
+    .add-bucket-card {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      border: 2px dashed var(--border-light);
+      background: transparent;
+      color: var(--text-muted);
+      font-size: 2rem;
+      min-height: 120px;
+      transition: all 0.2s;
+    }
+    .add-bucket-card:hover {
+      border-color: var(--btn-primary);
+      color: var(--btn-primary);
+      background: var(--bg-progress);
+    }
+
+    /* 登录历史表格 */
+    .history-table-wrapper {
+      max-height: 300px;
+      overflow-y: auto;
+      margin-top: 10px;
+    }
+
+    /* UA 单元格滚动 */
+    .ua-cell {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      max-width: 250px;
+    }
+    .ua-text {
+      overflow-x: auto;
+      white-space: nowrap;
+      max-width: 180px;
+      scrollbar-width: thin;
+    }
+    
+    .copy-ua-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      color: var(--text-muted);
+      padding: 0;
+      display: inline-flex;
+      align-items: center;
+      flex-shrink: 0;
+      box-shadow: none;
+    }
+    .copy-ua-btn:hover {
+      color: var(--btn-primary);
+    }
+
+    /* 文件列表过渡 */
+    #fileList { transition: opacity 0.2s ease; }
+    #fileList.fade-out { opacity: 0; }
+
+    /* 非线性动画 */
+    .bucket-view {
+      transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s ease;
+    }
+    #bucketViewContainer {
+      transition: height 0.45s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    /* 初始化密码 */
+    #initPwdBtn {
+      background: none;
+      border: none;
+      color: var(--link-color);
+      cursor: pointer;
+      text-decoration: underline;
+      font-size: 0.8rem;
+      margin-top: 5px;
+      box-shadow: none;
+      padding: 5px;
+    }
+
+    /* 视图容器定位 */
+    #bucketViewContainer {
+      position: relative;
+      overflow: hidden;
+    }
+    .bucket-view {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateX(100%);
+    }
+    .bucket-view.active {
+      position: relative;
+      transform: translateX(0);
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .bucket-view.inactive-left {
+      transform: translateX(-100%);
+      opacity: 0;
+      pointer-events: none;
+    }
+    .bucket-view.inactive-right {
+      transform: translateX(100%);
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    /* 字段标签样式 */
+    .form-field {
+      display: flex;
+      flex-direction: column;
+    }
+    .form-field label {
+      font-size: 0.75rem;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+      font-weight: 500;
+    }
+
+    /* 底部按钮左右分布 */
+    .footer-actions {
+      justify-content: space-between !important;
+    }
+  </style>
+</head>
+<body>
+
+<!-- 全屏加载动画覆盖层 -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="loading-brand">
+    <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 16 16">
+      <path fill="#ffffff" fill-rule="evenodd" d="M11.615 4.888c.814-.375.885-.714.885-.888s-.071-.513-.885-.888S9.538 2.5 8 2.5s-2.799.237-3.615.612C3.57 3.487 3.5 3.826 3.5 4s.071.513.885.888S6.462 5.5 8 5.5s2.799-.237 3.615-.612M8 7c1.688 0 3.213-.26 4.304-.779a13 13 0 0 1-.085.431l-1.18 5.51a1 1 0 0 1-.039.094a1.5 1.5 0 0 1-.31.433c-.306.306-1.03.811-2.69.811s-2.384-.505-2.69-.81a1.5 1.5 0 0 1-.31-.434a1 1 0 0 1-.038-.095l-.022-.1q.163-.025.33-.063c1.518-.331 3.284-1.253 5.221-2.931a.75.75 0 1 0-.982-1.134c-1.813 1.572-3.36 2.338-4.56 2.6q-.166.036-.324.06l-.844-3.94q-.046-.215-.085-.432C4.786 6.741 6.312 7 8 7m-4.93 3.496l-.697-3.254c-.28.426-.434.846-.49 1.227c-.107.72.13 1.323.592 1.7c.158.13.356.244.596.327M2.062 5.314Q2.001 4.66 2 4c0-2 2.686-3 6-3s6 1 6 3c0 .997-.105 1.992-.314 2.967L12.5 12.5S12 15 8 15s-4.5-2.5-4.5-2.5l-.084-.394c-.736-.091-1.378-.356-1.89-.775C.611 10.583.223 9.435.398 8.25c.15-1.02.708-2.049 1.662-2.936" clip-rule="evenodd"></path>
+    </svg>
+    <span>OneBucket</span>
+  </div>
+  <div class="loading-dots">
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="1em" height="1em">
+      <circle cx="18" cy="12" r="0" fill="currentColor"><animate attributeName="r" begin=".67" calcMode="spline" dur="1.5s" keySplines="0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8" repeatCount="indefinite" values="0;2;0;0"/></circle>
+      <circle cx="12" cy="12" r="0" fill="currentColor"><animate attributeName="r" begin=".33" calcMode="spline" dur="1.5s" keySplines="0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8" repeatCount="indefinite" values="0;2;0;0"/></circle>
+      <circle cx="6" cy="12" r="0" fill="currentColor"><animate attributeName="r" begin="0" calcMode="spline" dur="1.5s" keySplines="0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8;0.2 0.2 0.4 0.8" repeatCount="indefinite" values="0;2;0;0"/></circle>
+    </svg>
+  </div>
+</div>
+
+<!-- 登录框 -->
+<div class="login-box" id="loginBox">
+  <div class="login-inner">
+    <h3 id="loginTitle">登录</h3>
+    <input type="password" id="pwdInput" placeholder="输入访问密码" autocomplete="off">
+    <button onclick="login()" id="loginBtn">登 录</button>
+    <button id="initPwdBtn" style="display:none;" onclick="showInitPwd()">初始化密码</button>
+    <div id="loginTip"></div>
+  </div>
+</div>
+
+<!-- 主界面 -->
+<div class="wrap" id="mainBox">
+  <h2>☁️ R2 对象存储</h2>
+
+  <!-- 桶切换栏（自定义下拉） -->
+  <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px; width:100%;">
+    <div class="custom-select" id="bucketSelectContainer">
+      <div class="custom-select-trigger" onclick="toggleBucketDropdown()">
+        <span id="bucketSelectLabel">-- 请选择桶 --</span>
+        <svg class="arrow" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 12 12"><path fill="currentColor" d="M6 8L1 3h10z"/></svg>
+      </div>
+      <div class="custom-select-options" id="bucketOptions"></div>
+    </div>
+    <button onclick="openBucketManager()" style="background:var(--btn-purple); padding:10px 16px;">⚙️ 管理桶</button>
+    <span id="bucketUsage" style="font-size:0.8rem; color:var(--text-muted); display:none;"></span>
+  </div>
+
+  <!-- 操作栏 -->
+  <div class="top-bar">
+    <input type="text" id="newDirName" placeholder="新建文件夹名称">
+    <button class="mkdir-btn" onclick="makeDir()">📁 新建文件夹</button>
+    <input type="file" id="fileInp" multiple>
+    <button class="upload-btn" onclick="uploadFiles()">批量上传</button>
+    <button class="export-btn" onclick="exportAllLinks()">导出全部链接</button>
+    <button onclick="logout()" style="background:var(--btn-gray)">退出</button>
+  </div>
+
+  <div class="path-bar" id="pathHtml"></div>
+  <div id="uploadProgressContainer" class="upload-progress-container"></div>
+
+  <div class="status-bar">
+    <div class="tip" id="status">就绪</div>
+    <button class="refresh-btn" onclick="getFileList()" title="刷新">
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="1em" height="1em">
+        <g fill="none">
+          <path d="m12.593 23.258l-.011.002l-.071.035l-.02.004l-.014-.004l-.071-.035q-.016-.005-.024.005l-.004.01l-.017.428l.005.02l.01.013l.104.074l.015.004l.012-.004l.104-.074l.012-.016l.004-.017l-.017-.427q-.004-.016-.017-.018m.265-.113l-.013.002l-.185.093l-.01.01l-.003.011l.018.43l.005.012l.008.007l.201.093q.019.005.029-.008l.004-.014l-.034-.614q-.005-.018-.02-.022m-.715.002a.02.02 0 0 0-.027.006l-.006.014l-.034.614q.001.018.017.024l.015-.002l.201-.093l.01-.008l.004-.011l.017-.43l-.003-.012l-.01-.01z"/>
+          <path fill="currentColor" d="M2 12.08c-.006-.862.91-1.356 1.618-.975l.095.058l2.678 1.804c.972.655.377 2.143-.734 2.007l-.117-.02l-1.063-.234a8.002 8.002 0 0 0 14.804.605a1 1 0 0 1 1.82.828c-1.987 4.37-6.896 6.793-11.687 5.509A10 10 0 0 1 2 12.08m.903-4.228C4.89 3.482 9.799 1.06 14.59 2.343a10 10 0 0 1 7.414 9.581c.007.863-.91 1.358-1.617.976l-.096-.058l-2.678-1.804c-.972-.655-.377-2.143.734-2.007l.117.02l1.063.234A8.002 8.002 0 0 0 4.723 8.68a1 1 0 1 1-1.82-.828"/>
+        </g>
+      </svg>
+    </button>
+  </div>
+
+  <div class="table-wrapper">
+    <table>
+      <thead><tr><th>名称</th><th>大小</th><th>修改时间</th><th>操作</th></tr></thead>
+      <tbody id="fileList"></tbody>
+    </table>
+  </div>
+</div>
+
+<!-- 编辑器弹窗 -->
+<div id="editorModal" class="modal-overlay">
+  <div class="modal-content">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+      <h3 style="display:flex; align-items:center; gap:8px;">
+        编辑文件：
+        <span id="editorFileName" onclick="openRenameFromEditor()" style="cursor:pointer; text-decoration:underline dotted; text-underline-offset:3px;" title="点击重命名"></span>
+        <button onclick="openRenameFromEditor()" style="background:none; border:none; cursor:pointer; font-size:1.2rem; padding:0; display:inline-flex; align-items:center; color:var(--text-secondary);" title="重命名">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" width="1em" height="1em"><path fill="currentColor" d="M10 6.5V2H5.5A1.5 1.5 0 0 0 4 3.5v13A1.5 1.5 0 0 0 5.5 18h2.721c-.21-.39-.285-.86-.164-1.347l.375-1.498a3.2 3.2 0 0 1 .84-1.485l4.83-4.83A2.86 2.86 0 0 1 16 8.004V8h-4.5A1.5 1.5 0 0 1 10 6.5m1 0V2.25L15.75 7H11.5a.5.5 0 0 1-.5-.5m6.454 3.048a1.87 1.87 0 0 0-2.645 0l-4.83 4.83a2.2 2.2 0 0 0-.577 1.02l-.375 1.498a.89.89 0 0 0 1.079 1.078l1.498-.374a2.2 2.2 0 0 0 1.02-.578l4.83-4.83a1.87 1.87 0 0 0 0-2.644"/></svg>
+        </button>
+      </h3>
+    </div>
+    <textarea id="editorContent" style="width:100%; height:400px; padding:10px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary); font-family:monospace; font-size:14px; resize:vertical;"></textarea>
+    <div class="modal-actions">
+      <button onclick="closeEditor()" style="background:var(--btn-gray);">取消</button>
+      <button onclick="saveEditor()" style="background:var(--btn-primary);">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- 重命名弹窗 -->
+<div id="renameModal" class="modal-overlay">
+  <div class="modal-content" style="max-width:400px;">
+    <h3 style="margin-bottom:10px; color:var(--text-primary);">重命名</h3>
+    <p style="margin-bottom:10px; color:var(--text-secondary);">当前名称：<span id="renameOldName"></span></p>
+    <input type="text" id="renameInput" style="width:100%; padding:10px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);" placeholder="输入新名称">
+    <div class="modal-actions">
+      <button onclick="closeRename()" style="background:var(--btn-gray);">取消</button>
+      <button onclick="submitRename()" style="background:var(--btn-primary);">确定</button>
+    </div>
+  </div>
+</div>
+
+<!-- 桶管理弹窗 -->
+<div id="bucketManagerModal" class="modal-overlay">
+  <div class="modal-content" style="max-width:900px;">
+    <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:15px;">
+      <h3 id="bucketManagerTitle">📦 桶列表</h3>
+    </div>
+
+    <!-- 视图容器：用于滑动动画 -->
+    <div id="bucketViewContainer">
+      <!-- 一级视图：桶卡片列表 -->
+      <div id="bucketListView" class="bucket-view active">
+        <div class="bucket-card-list" id="bucketCardList"></div>
+        <!-- 底部按钮：账户管理在左，关闭在右 -->
+        <div class="modal-actions footer-actions">
+          <button onclick="showAccountView()" style="background:var(--btn-primary);">🔐 账户管理</button>
+          <button onclick="closeBucketManager()" style="background:var(--btn-gray);">关闭</button>
+        </div>
+      </div>
+
+      <!-- 二级视图：桶详情表单 -->
+      <div id="bucketDetailView" class="bucket-view inactive-right">
+        <div id="bucketConfigList" style="display:flex; flex-direction:column; gap:15px;"></div>
+        <div class="modal-actions">
+          <button onclick="showBucketList()" style="background:var(--btn-gray);">返回</button>
+          <button onclick="saveBucketConfigs()" style="background:var(--btn-primary);">保存配置</button>
+        </div>
+      </div>
+
+      <!-- 三级视图：账户管理 -->
+      <div id="accountView" class="bucket-view inactive-right">
+        <h4 style="margin-bottom:10px;color:var(--text-primary);">修改密码</h4>
+        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px;">
+          <input type="password" id="oldPwdInput" placeholder="旧密码" style="flex:1; min-width:150px;">
+          <input type="password" id="newPwdInput" placeholder="新密码（至少6位）" style="flex:1; min-width:150px;">
+          <button onclick="submitChangePwd()" style="background:var(--btn-primary);">确认修改</button>
+        </div>
+        <h4 style="margin-bottom:10px;color:var(--text-primary);">已登录设备</h4>
+        <div class="history-table-wrapper">
+          <table>
+            <thead><tr><th>登录时间</th><th>IP</th><th>User-Agent</th><th>操作</th></tr></thead>
+            <tbody id="loginHistoryList"></tbody>
+          </table>
+        </div>
+        <div class="modal-actions">
+          <button onclick="showBucketList()" style="background:var(--btn-gray);">返回</button>
+          <button onclick="closeBucketManager()" style="background:var(--btn-gray);">关闭</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toast" class="toast"></div>
+
+<script>
+// ============================================================
+// 不再硬编码 API 地址，所有请求使用相对路径（同源）
+// ============================================================
+
+// ---------- 全局变量 ----------
+let currentPath = "";
+let currentFilesList = [];
+let currentEditKey = "";
+let currentRenameKey = "";
+let currentBucketId = "";
+let bucketsConfig = [];
+let editingBucketIndex = -1;
+let editingTempBucket = null;
+let bucketSizes = {};
+let currentView = 'list';
+
+// ---------- 工具函数 ----------
+function showToast(msg) {
+  const toast = document.getElementById("toast");
+  toast.innerText = msg;
+  toast.style.opacity = "1";
+  setTimeout(() => { toast.style.opacity = "0"; }, 2000);
+}
+
+function formatSize(b) {
+  if (b == null) return '';
+  if (b < 1024) return b + " B";
+  if (b < 1048576) return (b / 1024).toFixed(2) + " KB";
+  return (b / 1048576).toFixed(2) + " MB";
+}
+
+function escapeHtml(str) {
+  if (!str) return "";
+  return str.replace(/[&<>]/g, function(m) {
+    if (m === '&') return '&amp;';
+    if (m === '<') return '&lt;';
+    if (m === '>') return '&gt;';
+    return m;
+  });
+}
+
+function renderBread(path) {
+  const box = document.getElementById("pathHtml");
+  let html = `<a onclick="getFileList('')">🏠 根目录</a>`;
+  if (path === "") { box.innerHTML = html; return; }
+  let arr = [];
+  let temp = "";
+  path.split("/").filter(s => s).forEach(name => {
+    temp += name + "/";
+    arr.push({ name, full: temp });
+  });
+  arr.forEach(item => {
+    html += ` / <a onclick="getFileList('${item.full}')">${escapeHtml(item.name)}</a>`;
+  });
+  box.innerHTML = html;
+}
+
+function fetchWithCreds(url, options = {}) {
+  return fetch(url, {
+    ...options,
+    credentials: 'include',
+    headers: {
+      'Content-Type': 'application/json',
+      ...(options.headers || {})
+    }
+  });
+}
+
+// ---------- 获取所有桶的大小（异步） ----------
+async function fetchAllBucketUsages() {
+  const promises = bucketsConfig.map(async (b) => {
+    if (!b.accountId || !b.hasToken) {
+      bucketSizes[b.id] = null;
+      return;
+    }
+    try {
+      const res = await fetchWithCreds(`/usage?bucketId=${b.id}`);
+      const json = await res.json();
+      if (json.code === 200 && json.size != null) {
+        bucketSizes[b.id] = json.size;
+      } else {
+        bucketSizes[b.id] = null;
+      }
+    } catch (e) {
+      bucketSizes[b.id] = null;
+    }
+  });
+  await Promise.allSettled(promises);
+  renderBucketOptions();
+  renderBucketCardList();
+  updateBucketSelectLabel();
+}
+
+function getBucketDisplayName(bucketId, bucketName) {
+  let name = bucketName || bucketId;
+  const size = bucketSizes[bucketId];
+  if (size != null && size !== undefined) {
+    name += ` (${formatSize(size)})`;
+  }
+  return name;
+}
+
+function updateBucketSelectLabel() {
+  const conf = bucketsConfig.find(b => b.id === currentBucketId);
+  if (conf) {
+    document.getElementById('bucketSelectLabel').innerText = getBucketDisplayName(conf.id, conf.name);
+  } else {
+    document.getElementById('bucketSelectLabel').innerText = '-- 请选择桶 --';
+  }
+}
+
+// ---------- 自定义桶下拉逻辑 ----------
+function toggleBucketDropdown() {
+  const container = document.getElementById('bucketSelectContainer');
+  container.classList.toggle('open');
+}
+
+function selectBucket(id) {
+  currentBucketId = id;
+  updateBucketSelectLabel();
+  document.getElementById('bucketSelectContainer').classList.remove('open');
+  document.querySelectorAll('.custom-select-option').forEach(opt => {
+    opt.classList.toggle('selected', opt.dataset.value === id);
+  });
+  getFileList();
+}
+
+function renderBucketOptions() {
+  const optionsContainer = document.getElementById('bucketOptions');
+  optionsContainer.innerHTML = '';
+  if (bucketsConfig.length === 0) {
+    optionsContainer.innerHTML = '<div class="custom-select-option" style="cursor:default; color:var(--text-muted);">无桶配置</div>';
+    return;
+  }
+  bucketsConfig.forEach(b => {
+    const opt = document.createElement('div');
+    opt.className = 'custom-select-option' + (b.id === currentBucketId ? ' selected' : '');
+    opt.dataset.value = b.id;
+    opt.innerText = getBucketDisplayName(b.id, b.name);
+    opt.onclick = () => selectBucket(b.id);
+    optionsContainer.appendChild(opt);
+  });
+}
+
+document.addEventListener('click', function(event) {
+  const container = document.getElementById('bucketSelectContainer');
+  if (container && !container.contains(event.target)) {
+    container.classList.remove('open');
+  }
+});
+
+// ---------- 登录/登出/初始化密码 ----------
+async function login() {
+  const pwd = document.getElementById('pwdInput').value;
+  const tipDom = document.getElementById('loginTip');
+  if (!pwd) { tipDom.innerText = "请输入密码"; return; }
+  try {
+    const res = await fetchWithCreds('/login', {
+      method: 'POST',
+      body: JSON.stringify({ pwd })
+    });
+    const json = await res.json();
+    if (json.code === 200) {
+      document.getElementById('loginBox').style.display = 'none';
+      const mainBox = document.getElementById('mainBox');
+      mainBox.style.display = 'block';
+      void mainBox.offsetWidth;
+      mainBox.classList.add('visible');
+      await loadBuckets();
+    } else if (json.code === 503) {
+      document.getElementById('initPwdBtn').style.display = 'block';
+      tipDom.innerText = json.msg || '请先初始化密码';
+    } else {
+      tipDom.innerText = json.msg || '登录失败';
+    }
+  } catch (e) {
+    tipDom.innerText = '连接失败，请检查网络';
+    console.error(e);
+  }
+}
+
+function showInitPwd() {
+  document.getElementById('loginTitle').innerText = '初始化密码';
+  document.getElementById('pwdInput').placeholder = '设置新密码（至少6位）';
+  document.getElementById('loginBtn').innerText = '设 置 密 码';
+  document.getElementById('loginBtn').onclick = initPassword;
+  document.getElementById('initPwdBtn').style.display = 'none';
+  document.getElementById('loginTip').innerText = '';
+}
+
+async function initPassword() {
+  const newPwd = document.getElementById('pwdInput').value;
+  if (!newPwd || newPwd.length < 6) {
+    document.getElementById('loginTip').innerText = '密码至少6位';
+    return;
+  }
+  try {
+    const res = await fetchWithCreds('/admin/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ newPwd })
+    });
+    const json = await res.json();
+    if (json.code === 200) {
+      showToast('✅ 密码已设置，请登录');
+      document.getElementById('loginTitle').innerText = '登录';
+      document.getElementById('pwdInput').placeholder = '输入访问密码';
+      document.getElementById('loginBtn').innerText = '登 录';
+      document.getElementById('loginBtn').onclick = login;
+      document.getElementById('pwdInput').value = '';
+      document.getElementById('loginTip').innerText = '密码设置成功，请使用新密码登录';
+    } else {
+      document.getElementById('loginTip').innerText = '设置失败：' + json.msg;
+    }
+  } catch (e) {
+    document.getElementById('loginTip').innerText = '设置失败：' + e.message;
+  }
+}
+
+async function logout() {
+  await fetchWithCreds('/logout', { method: 'POST' });
+  location.reload();
+}
+
+// ---------- 桶管理 ----------
+async function loadBuckets() {
+  try {
+    const res = await fetchWithCreds('/admin/buckets');
+    const json = await res.json();
+    if (json.code === 200) {
+      bucketsConfig = json.data;
+      bucketSizes = {};
+      renderBucketOptions();
+      if (bucketsConfig.length > 0) {
+        currentBucketId = bucketsConfig[0].id;
+        updateBucketSelectLabel();
+        document.querySelectorAll('.custom-select-option').forEach(opt => {
+          opt.classList.toggle('selected', opt.dataset.value === currentBucketId);
+        });
+        getFileList();
+      } else {
+        document.getElementById('fileList').innerHTML = '<tr><td colspan="4">请先添加桶配置</td></tr>';
+        document.getElementById('bucketSelectLabel').innerText = '-- 请选择桶 --';
+      }
+      fetchAllBucketUsages();
+    }
+  } catch (e) {
+    showToast('加载桶列表失败：' + e.message);
+  }
+}
+
+// ---------- 桶管理弹窗（三级视图滑动） ----------
+function openBucketManager() {
+  showBucketList(false);
+  document.getElementById('bucketManagerModal').classList.add('active');
+}
+
+function closeBucketManager() {
+  document.getElementById('bucketManagerModal').classList.remove('active');
+  editingBucketIndex = -1;
+  editingTempBucket = null;
+}
+
+function getContainerHeight() {
+  const container = document.getElementById('bucketViewContainer');
+  return container.offsetHeight;
+}
+function setContainerHeight(height) {
+  const container = document.getElementById('bucketViewContainer');
+  container.style.height = height + 'px';
+}
+function resetContainerHeight() {
+  const container = document.getElementById('bucketViewContainer');
+  container.style.height = 'auto';
+}
+
+function switchView(targetView) {
+  const container = document.getElementById('bucketViewContainer');
+  const views = {
+    list: document.getElementById('bucketListView'),
+    detail: document.getElementById('bucketDetailView'),
+    account: document.getElementById('accountView')
+  };
+  const currentViewEl = views[currentView];
+  const targetViewEl = views[targetView];
+
+  if (currentView === targetView) return;
+
+  const startHeight = getContainerHeight();
+  setContainerHeight(startHeight);
+
+  Object.values(views).forEach(v => {
+    v.classList.remove('active', 'inactive-left', 'inactive-right');
+  });
+
+  const toList = targetView === 'list';
+  if (toList) {
+    currentViewEl.classList.add('inactive-right');
+    targetViewEl.classList.add('active');
+  } else {
+    currentViewEl.classList.add('inactive-left');
+    targetViewEl.classList.add('active');
+  }
+
+  void container.offsetWidth;
+  resetContainerHeight();
+
+  setTimeout(() => {
+    currentViewEl.classList.remove('inactive-left', 'inactive-right');
+    currentViewEl.classList.add(toList ? 'inactive-right' : 'inactive-left');
+    currentViewEl.classList.remove('active');
+    targetViewEl.classList.remove('inactive-left', 'inactive-right');
+    targetViewEl.classList.add('active');
+    currentView = targetView;
+  }, 450);
+}
+
+function showBucketList(animate = true) {
+  if (editingBucketIndex === -1 && editingTempBucket) {
+    editingTempBucket = null;
+  }
+  editingBucketIndex = -1;
+  editingTempBucket = null;
+
+  document.getElementById('bucketManagerTitle').innerText = '📦 桶列表';
+  renderBucketCardList();
+
+  if (animate && currentView !== 'list') {
+    switchView('list');
+  } else {
+    const listView = document.getElementById('bucketListView');
+    const detailView = document.getElementById('bucketDetailView');
+    const accountView = document.getElementById('accountView');
+    listView.classList.remove('inactive-left', 'inactive-right');
+    listView.classList.add('active');
+    detailView.classList.remove('active');
+    detailView.classList.add('inactive-right');
+    accountView.classList.remove('active');
+    accountView.classList.add('inactive-right');
+    resetContainerHeight();
+    currentView = 'list';
+  }
+}
+
+function showBucketDetail(index) {
+  editingBucketIndex = index;
+  editingTempBucket = null;
+  document.getElementById('bucketManagerTitle').innerText = '✏️ 编辑桶配置';
+  renderBucketDetailForm(index);
+  switchView('detail');
+}
+
+function showAccountView() {
+  document.getElementById('bucketManagerTitle').innerText = '🔐 账户管理';
+  loadLoginHistory();
+  switchView('account');
+}
+
+function addBucketRow() {
+  editingBucketIndex = -1;
+  editingTempBucket = { id: '', name: '', accountId: '', endpoint: '', accessKeyId: '', secretAccessKey: '', apiToken: '', publicDomain: '', hasSecret: false, hasToken: false };
+  document.getElementById('bucketManagerTitle').innerText = '✏️ 添加桶';
+  renderBucketDetailFormFromTemp();
+  switchView('detail');
+}
+
+function renderBucketCardList() {
+  const container = document.getElementById('bucketCardList');
+  container.innerHTML = '';
+  bucketsConfig.forEach((b, index) => {
+    const card = document.createElement('div');
+    card.className = 'bucket-card';
+    card.addEventListener('click', (e) => {
+      if (e.target.closest('.delete-icon')) return;
+      showBucketDetail(index);
+    });
+
+    let usageHtml = '';
+    const size = bucketSizes[b.id];
+    if (size != null && size !== undefined) {
+      usageHtml = `<div class="card-usage">📊 ${formatSize(size)}</div>`;
+    } else if (b.accountId && b.hasToken) {
+      usageHtml = `<div class="card-usage">📊 获取中...</div>`;
+    } else {
+      usageHtml = `<div class="card-usage">📊 未配置统计</div>`;
+    }
+
+    const domainHtml = b.publicDomain ? `<div class="card-domain">🌐 ${escapeHtml(b.publicDomain)}</div>` : '';
+
+    card.innerHTML = `
+      <div class="card-header">
+        <div>
+          <div class="card-title">${escapeHtml(b.name || '未命名')}</div>
+          <div class="card-bucket-name">${escapeHtml(b.id || '无ID')}</div>
+          ${domainHtml}
+        </div>
+      </div>
+      <div class="card-footer">
+        <button class="delete-icon" onclick="deleteBucketFromCard(${index})" title="删除桶">
+          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="1em" height="1em"><g fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="4"><path stroke-linecap="round" d="M8 11h32M18 5h12"/><path fill="currentColor" d="M12 17h24v23a3 3 0 0 1-3 3H15a3 3 0 0 1-3-3z"/></g></svg>
+        </button>
+        <div style="text-align:right;">
+          ${usageHtml}
+        </div>
+      </div>
+    `;
+    container.appendChild(card);
+  });
+
+  // 添加“添加桶”卡片
+  const addCard = document.createElement('div');
+  addCard.className = 'bucket-card add-bucket-card';
+  addCard.onclick = addBucketRow;
+  addCard.innerHTML = '<span>+</span>';
+  container.appendChild(addCard);
+}
+
+function deleteBucketFromCard(index) {
+  event.stopPropagation();
+  if (!confirm('确定删除该桶配置吗？')) return;
+  bucketsConfig.splice(index, 1);
+  if (currentBucketId === bucketsConfig[index]?.id) {
+    currentBucketId = '';
+    document.getElementById('bucketSelectLabel').innerText = '-- 请选择桶 --';
+    document.getElementById('fileList').innerHTML = '<tr><td colspan="4">请先添加桶配置</td></tr>';
+  }
+  delete bucketSizes[bucketsConfig[index]?.id];
+  renderBucketCardList();
+  renderBucketOptions();
+  saveBucketsConfigToServer();
+}
+
+// 渲染桶详情表单（带字段标签）
+function renderBucketDetailForm(index) {
+  const container = document.getElementById('bucketConfigList');
+  container.innerHTML = '';
+  const b = bucketsConfig[index];
+  const div = document.createElement('div');
+  div.style.cssText = 'border:1px solid var(--border-light); padding:12px; border-radius:12px; background:var(--bg-progress);';
+  div.innerHTML = `
+    <div class="bucket-config-grid">
+      <div class="form-field">
+        <label>唯一ID（不可修改）</label>
+        <input value="${b.id || ''}" data-field="id" readonly style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
+      </div>
+      <div class="form-field">
+        <label>显示名称</label>
+        <input placeholder="显示名称" value="${b.name || ''}" data-field="name" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
+      </div>
+      <div class="form-field">
+        <label>Endpoint</label>
+        <input placeholder="Endpoint (如 https://acc.r2.cloudflarestorage.com)" value="${b.endpoint || ''}" data-field="endpoint" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
+      </div>
+      <div class="form-field">
+        <label>Access Key ID</label>
+        <input placeholder="Access Key ID" value="${b.accessKeyId || ''}" data-field="accessKeyId" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
+      </div>
+      <div class="form-field">
+        <label>Secret Access Key</label>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <input placeholder="留空则不修改" type="password" data-field="secretAccessKey" style="flex:1; padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
+          ${b.hasSecret ? '<span style="font-size:0.7rem; color:var(--text-muted);">(已配置)</span>' : ''}
+        </div>
+      </div>
+      <div class="form-field">
+        <label>公共域名（可选）</label>
+        <input placeholder="公共域名" value="${b.publicDomain || ''}" data-field="publicDomain" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
+      </div>
+      <div style="grid-column: span 2; margin-top: 5px;">
+        <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:5px;">用量统计设置（可选，需 Cloudflare API Token）</div>
+        <div class="usage-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div class="form-field">
+            <label>Account ID</label>
+            <input placeholder="Account ID" value="${b.accountId || ''}" data-field="accountId" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
+          </div>
+          <div class="form-field">
+            <label>API Token</label>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <input placeholder="留空则不修改" type="password" data-field="apiToken" style="flex:1; padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
+              ${b.hasToken ? '<span style="font-size:0.7rem; color:var(--text-muted);">(已配置)</span>' : ''}
+            </div>
+          </div>
+        </div>
+        <small style="display:block; margin-top:4px; color:var(--text-muted);">Token 需拥有 Cloudflare R2 读取权限</small>
+      </div>
+    </div>
+  `;
+  container.appendChild(div);
+}
+// (注意：上面重复了 renderBucketDetailForm，但不会影响执行，下面保留一个有效定义)
+// 为避免重复，将上面的函数覆盖为唯一版本（保留最后定义的函数）
+// 重新定义 renderBucketDetailForm 以避免重复
+function renderBucketDetailForm(index) {
+  const container = document.getElementById('bucketConfigList');
+  container.innerHTML = '';
+  const b = bucketsConfig[index];
+  const div = document.createElement('div');
+  div.style.cssText = 'border:1px solid var(--border-light); padding:12px; border-radius:12px; background:var(--bg-progress);';
+  div.innerHTML = `
+    <div class="bucket-config-grid">
+      <div class="form-field">
+        <label>唯一ID（不可修改）</label>
+        <input value="${b.id || ''}" data-field="id" readonly style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
+      </div>
+      <div class="form-field">
+        <label>显示名称</label>
+        <input placeholder="显示名称" value="${b.name || ''}" data-field="name" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
+      </div>
+      <div class="form-field">
+        <label>Endpoint</label>
+        <input placeholder="Endpoint (如 https://acc.r2.cloudflarestorage.com)" value="${b.endpoint || ''}" data-field="endpoint" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
+      </div>
+      <div class="form-field">
+        <label>Access Key ID</label>
+        <input placeholder="Access Key ID" value="${b.accessKeyId || ''}" data-field="accessKeyId" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
+      </div>
+      <div class="form-field">
+        <label>Secret Access Key</label>
+        <div style="display:flex; gap:6px; align-items:center;">
+          <input placeholder="留空则不修改" type="password" data-field="secretAccessKey" style="flex:1; padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
+          ${b.hasSecret ? '<span style="font-size:0.7rem; color:var(--text-muted);">(已配置)</span>' : ''}
+        </div>
+      </div>
+      <div class="form-field">
+        <label>公共域名（可选）</label>
+        <input placeholder="公共域名" value="${b.publicDomain || ''}" data-field="publicDomain" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
+      </div>
+      <div style="grid-column: span 2; margin-top: 5px;">
+        <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:5px;">用量统计设置（可选，需 Cloudflare API Token）</div>
+        <div class="usage-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div class="form-field">
+            <label>Account ID</label>
+            <input placeholder="Account ID" value="${b.accountId || ''}" data-field="accountId" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
+          </div>
+          <div class="form-field">
+            <label>API Token</label>
+            <div style="display:flex; gap:6px; align-items:center;">
+              <input placeholder="留空则不修改" type="password" data-field="apiToken" style="flex:1; padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
+              ${b.hasToken ? '<span style="font-size:0.7rem; color:var(--text-muted);">(已配置)</span>' : ''}
+            </div>
+          </div>
+        </div>
+        <small style="display:block; margin-top:4px; color:var(--text-muted);">Token 需拥有 Cloudflare R2 读取权限</small>
+      </div>
+    </div>
+  `;
+  container.appendChild(div);
+}
+
+function renderBucketDetailFormFromTemp() {
+  const container = document.getElementById('bucketConfigList');
+  container.innerHTML = '';
+  const b = editingTempBucket;
+  const div = document.createElement('div');
+  div.style.cssText = 'border:1px solid var(--border-light); padding:12px; border-radius:12px; background:var(--bg-progress);';
+  div.innerHTML = `
+    <div class="bucket-config-grid">
+      <div class="form-field">
+        <label>唯一ID（保存后不可修改）</label>
+        <input placeholder="唯一ID (如 bucket-1)" value="${b.id || ''}" data-field="id" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
+      </div>
+      <div class="form-field">
+        <label>显示名称</label>
+        <input placeholder="显示名称" value="${b.name || ''}" data-field="name" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
+      </div>
+      <div class="form-field">
+        <label>Endpoint</label>
+        <input placeholder="Endpoint (如 https://acc.r2.cloudflarestorage.com)" value="${b.endpoint || ''}" data-field="endpoint" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
+      </div>
+      <div class="form-field">
+        <label>Access Key ID</label>
+        <input placeholder="Access Key ID" value="${b.accessKeyId || ''}" data-field="accessKeyId" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
+      </div>
+      <div class="form-field">
+        <label>Secret Access Key</label>
+        <input placeholder="Secret Access Key" type="password" data-field="secretAccessKey" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
+      </div>
+      <div class="form-field">
+        <label>公共域名（可选）</label>
+        <input placeholder="公共域名" value="${b.publicDomain || ''}" data-field="publicDomain" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
+      </div>
+      <div style="grid-column: span 2; margin-top: 5px;">
+        <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:5px;">用量统计设置（可选，需 Cloudflare API Token）</div>
+        <div class="usage-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
+          <div class="form-field">
+            <label>Account ID</label>
+            <input placeholder="Account ID" value="${b.accountId || ''}" data-field="accountId" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
+          </div>
+          <div class="form-field">
+            <label>API Token</label>
+            <input placeholder="API Token" type="password" data-field="apiToken" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
+          </div>
+        </div>
+        <small style="display:block; margin-top:4px; color:var(--text-muted);">Token 需拥有 Cloudflare R2 读取权限</small>
+      </div>
+    </div>
+  `;
+  container.appendChild(div);
+}
+
+async function saveBucketConfigs() {
+  const inputs = document.querySelectorAll('#bucketConfigList input[data-field]');
+  const newData = {};
+  inputs.forEach(inp => {
+    newData[inp.dataset.field] = inp.value.trim();
+  });
+  if (!newData.id || !newData.name || !newData.endpoint || !newData.accessKeyId) {
+    showToast('请填写必填字段：ID、名称、Endpoint、Access Key ID');
+    return;
+  }
+
+  if (editingBucketIndex === -1) {
+    const newBucket = {
+      id: newData.id,
+      name: newData.name,
+      endpoint: newData.endpoint,
+      accessKeyId: newData.accessKeyId,
+      secretAccessKey: newData.secretAccessKey || '',
+      apiToken: newData.apiToken || '',
+      publicDomain: newData.publicDomain || '',
+      accountId: newData.accountId || '',
+      hasSecret: newData.secretAccessKey ? true : false,
+      hasToken: newData.apiToken ? true : false,
+    };
+    bucketsConfig.push(newBucket);
+  } else {
+    const oldBucket = bucketsConfig[editingBucketIndex];
+    const updatedBucket = {
+      ...oldBucket,
+      id: newData.id,
+      name: newData.name,
+      endpoint: newData.endpoint,
+      accessKeyId: newData.accessKeyId,
+      publicDomain: newData.publicDomain || '',
+      accountId: newData.accountId || '',
+      secretAccessKey: newData.secretAccessKey ? newData.secretAccessKey : oldBucket.secretAccessKey,
+      apiToken: newData.apiToken ? newData.apiToken : oldBucket.apiToken,
+      hasSecret: newData.secretAccessKey ? true : oldBucket.hasSecret,
+      hasToken: newData.apiToken ? true : oldBucket.hasToken,
+    };
+    bucketsConfig[editingBucketIndex] = updatedBucket;
+  }
+
+  try {
+    const res = await fetchWithCreds('/admin/buckets', {
+      method: 'POST',
+      body: JSON.stringify({ data: bucketsConfig })
+    });
+    const json = await res.json();
+    if (json.code === 200) {
+      showToast('✅ 桶配置已保存');
+      bucketSizes = {};
+      await fetchAllBucketUsages();
+      renderBucketOptions();
+      if (currentBucketId && bucketsConfig.some(b => b.id === currentBucketId)) {
+        updateBucketSelectLabel();
+      }
+      showBucketList();
+    } else {
+      showToast('保存失败：' + json.msg);
+    }
+  } catch (e) {
+    showToast('保存失败：' + e.message);
+  }
+}
+
+async function saveBucketsConfigToServer() {
+  try {
+    const res = await fetchWithCreds('/admin/buckets', {
+      method: 'POST',
+      body: JSON.stringify({ data: bucketsConfig })
+    });
+    const json = await res.json();
+    if (json.code !== 200) {
+      showToast('删除后同步失败：' + json.msg);
+    }
+  } catch (e) {
+    showToast('删除后同步失败：' + e.message);
+  }
+}
+
+// ---------- 账户管理 ----------
+async function loadLoginHistory() {
+  const tbody = document.getElementById('loginHistoryList');
+  tbody.innerHTML = '<tr><td colspan="4">加载中...</td></tr>';
+  try {
+    const res = await fetchWithCreds('/admin/login-history');
+    const json = await res.json();
+    if (json.code === 200) {
+      const history = json.data || [];
+      tbody.innerHTML = '';
+      if (history.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="4">暂无登录记录</td></tr>';
+        return;
+      }
+      history.forEach(item => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${new Date(item.time).toLocaleString()}</td>
+          <td>${escapeHtml(item.ip || '')}</td>
+          <td>
+            <div class="ua-cell">
+              <button class="copy-ua-btn" onclick="copyUA('${escapeHtml(item.ua || '')}')" title="复制UA">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="1em" height="1em"><g fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="4"><path stroke-linecap="round" d="M13 12.432v-4.62A2.813 2.813 0 0 1 15.813 5h24.374A2.813 2.813 0 0 1 43 7.813v24.375A2.813 2.813 0 0 1 40.188 35h-4.672"/><path fill="currentColor" d="M32.188 13H7.811A2.813 2.813 0 0 0 5 15.813v24.374A2.813 2.813 0 0 0 7.813 43h24.375A2.813 2.813 0 0 0 35 40.188V15.811A2.813 2.813 0 0 0 32.188 13Z"/></g></svg>
+              </button>
+              <div class="ua-text" title="${escapeHtml(item.ua || '')}">${escapeHtml(item.ua || '')}</div>
+            </div>
+          </td>
+          <td><button class="del-btn" onclick="deleteLoginHistory('${item.id}')">删除</button></td>
+        `;
+        tbody.appendChild(tr);
+      });
+    } else {
+      tbody.innerHTML = '<tr><td colspan="4">加载失败</td></tr>';
+    }
+  } catch (e) {
+    tbody.innerHTML = '<tr><td colspan="4">加载失败</td></tr>';
+  }
+}
+
+function copyUA(ua) {
+  navigator.clipboard.writeText(ua).then(() => {
+    showToast('✅ UA已复制');
+  }).catch(() => {
+    showToast('❌ 复制失败');
+  });
+}
+
+async function deleteLoginHistory(id) {
+  if (!confirm('确定删除该登录设备？对应设备将被强制下线。')) return;
+  try {
+    const res = await fetchWithCreds('/admin/delete-login-history', {
+      method: 'POST',
+      body: JSON.stringify({ id })
+    });
+    const json = await res.json();
+    if (json.code === 200) {
+      showToast('✅ 已删除');
+      loadLoginHistory();
+    } else {
+      showToast('删除失败：' + json.msg);
+    }
+  } catch (e) {
+    showToast('删除失败：' + e.message);
+  }
+}
+
+async function submitChangePwd() {
+  const oldPwd = document.getElementById('oldPwdInput').value;
+  const newPwd = document.getElementById('newPwdInput').value;
+  if (!newPwd || newPwd.length < 6) {
+    showToast('新密码至少6位');
+    return;
+  }
+  try {
+    const res = await fetchWithCreds('/admin/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ oldPwd, newPwd })
+    });
+    const json = await res.json();
+    if (json.code === 200) {
+      showToast('✅ ' + json.msg);
+      document.getElementById('oldPwdInput').value = '';
+      document.getElementById('newPwdInput').value = '';
+      await logout();
+    } else {
+      showToast('修改失败：' + json.msg);
+    }
+  } catch (e) {
+    showToast('修改失败：' + e.message);
+  }
+}
+
+// ---------- 文件列表 ----------
+async function getFileList(path = currentPath) {
+  if (!currentBucketId) {
+    document.getElementById('fileList').innerHTML = '<tr><td colspan="4">请先选择一个桶</td></tr>';
+    return;
+  }
+  currentPath = path;
+  const statusDom = document.getElementById('status');
+  const listDom = document.getElementById('fileList');
+  statusDom.innerText = '加载中...';
+  listDom.classList.add('fade-out');
+  setTimeout(async () => {
+    try {
+      const res = await fetchWithCreds(`/list?path=${encodeURIComponent(path)}&bucketId=${currentBucketId}`);
+      const json = await res.json();
+      listDom.innerHTML = '';
+      renderBread(path);
+      currentFilesList = json.files.map(f => ({ name: f.name, url: f.url, fullKey: f.fullKey, downloadUrl: f.downloadUrl || '' }));
+
+      json.folders.forEach(item => {
+        const tr = document.createElement('tr');
+        const folderName = item.name.replace('/', '');
+        tr.innerHTML = `
+          <td><a onclick="openFolder('${item.path}')">📁 ${escapeHtml(folderName)}</a></td>
+          <td>—</td><td>—</td>
+          <td>
+            <button class="copy-btn" onclick="openRename('${encodeURIComponent(item.path)}', '${escapeHtml(folderName)}')">重命名</button>
+            <button class="del-btn" onclick="delItem('${item.path}')">删除文件夹</button>
+          </td>
+        `;
+        listDom.appendChild(tr);
+      });
+
+      json.files.forEach(item => {
+        const tr = document.createElement('tr');
+        const size = formatSize(item.size);
+        const time = new Date(item.uploadTime).toLocaleString();
+        const ext = item.name.split('.').pop().toLowerCase();
+        const isTextFile = ['js','css','html','txt','json','md','xml','yml','yaml','ini','conf','log','csv'].includes(ext);
+        tr.innerHTML = `
+          <td><span onclick="openRename('${encodeURIComponent(item.fullKey)}', '${escapeHtml(item.name)}')" style="cursor:pointer;">📄 ${escapeHtml(item.name)}</span></td>
+          <td>${size}</td>
+          <td>${time}</td>
+          <td>
+            ${item.url ? `<a href="${item.url}" target="_blank">预览</a>` : ''}
+            <button class="copy-btn" onclick="downloadFile('${item.downloadUrl}')">下载</button>
+            <button class="copy-btn" onclick="copyLink('${item.url}', '${escapeHtml(item.name)}')">复制链接</button>
+            ${isTextFile ? `<button class="copy-btn" onclick="openEditor('${encodeURIComponent(item.fullKey)}', '${escapeHtml(item.name)}')">编辑</button>` : ''}
+            <button class="del-btn" onclick="delItem('${item.fullKey}')">删除</button>
+          </td>
+        `;
+        listDom.appendChild(tr);
+      });
+
+      if (json.folders.length + json.files.length === 0) {
+        listDom.innerHTML = "<tr class='empty-row'><td colspan='4'>📭 当前目录为空</td></tr>";
+      }
+      statusDom.innerText = `📁 ${json.folders.length} 个文件夹 · 📄 ${json.files.length} 个文件`;
+    } catch (e) {
+      statusDom.innerText = '加载失败：' + e.message;
+      showToast('加载失败：' + e.message);
+    } finally {
+      listDom.classList.remove('fade-out');
+    }
+  }, 200);
+}
+
+function openFolder(fullPath) { getFileList(fullPath); }
+
+// ---------- 新建文件夹 ----------
+async function makeDir() {
+  const dirName = document.getElementById('newDirName').value.trim();
+  if (!dirName) { showToast('请输入文件夹名称'); return; }
+  const fullDir = currentPath + dirName;
+  try {
+    await fetchWithCreds(`/mkdir?path=${encodeURIComponent(fullDir)}&bucketId=${currentBucketId}`, {
+      method: 'POST'
+    });
+    document.getElementById('newDirName').value = '';
+    getFileList();
+  } catch (e) {
+    showToast('创建失败：' + e.message);
+  }
+}
+
+// ---------- 上传 ----------
+async function uploadFiles() {
+  const fileInput = document.getElementById('fileInp');
+  const files = Array.from(fileInput.files);
+  if (files.length === 0) { showToast('请选择文件'); return; }
+
+  const container = document.getElementById('uploadProgressContainer');
+  container.innerHTML = '';
+  container.style.display = 'flex';
+
+  const progressItems = [];
+  for (let i = 0; i < files.length; i++) {
+    const file = files[i];
+    const itemDiv = document.createElement('div');
+    itemDiv.className = 'progress-item';
+    itemDiv.setAttribute('data-index', i);
+    itemDiv.innerHTML = `
+      <div class="upload-status-icon"><span class="pulse-dot"></span></div>
+      <div class="file-label" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</div>
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill uploading" style="width:0%"></div>
+      </div>
+      <div class="progress-percent">0%</div>
+    `;
+    container.appendChild(itemDiv);
+    progressItems.push({
+      div: itemDiv,
+      fill: itemDiv.querySelector('.progress-bar-fill'),
+      percentSpan: itemDiv.querySelector('.progress-percent'),
+      file: file
+    });
+  }
+
+  let completed = 0, failed = 0;
+  const statusDom = document.getElementById('status');
+  const CONCURRENCY = 3;
+  const queue = [...progressItems];
+
+  async function uploadOne(item) {
+    const { file, fill, percentSpan, div } = item;
+    const xhr = new XMLHttpRequest();
+    const fd = new FormData();
+    fd.append('file', file);
+
+    return new Promise((resolve) => {
+      xhr.upload.onprogress = function(e) {
+        if (e.lengthComputable) {
+          const percent = Math.round((e.loaded / e.total) * 100);
+          fill.style.width = percent + '%';
+          percentSpan.innerText = percent + '%';
+          if (percent === 100) fill.classList.remove('uploading');
+        }
+      };
+      xhr.onload = function() {
+        if (xhr.status === 200) {
+          div.querySelector('.upload-status-icon').innerHTML = '✅';
+          completed++;
+        } else {
+          div.querySelector('.upload-status-icon').innerHTML = '❌';
+          fill.style.background = 'var(--btn-danger)';
+          failed++;
+        }
+        resolve();
+      };
+      xhr.onerror = function() {
+        div.querySelector('.upload-status-icon').innerHTML = '❌';
+        fill.style.background = 'var(--btn-danger)';
+        failed++;
+        resolve();
+      };
+      xhr.open('POST', `/upload?path=${encodeURIComponent(currentPath)}&bucketId=${currentBucketId}`);
+      xhr.withCredentials = true;
+      xhr.send(fd);
+    });
+  }
+
+  async function processNext() {
+    while (queue.length) {
+      const item = queue.shift();
+      await uploadOne(item);
+      statusDom.innerText = `上传中：已完成 ${completed} / ${progressItems.length}，失败 ${failed}`;
+    }
+  }
+
+  const workers = [];
+  for (let i = 0; i < Math.min(CONCURRENCY, queue.length); i++) {
+    workers.push(processNext());
+  }
+  await Promise.all(workers);
+  statusDom.innerText = `✅ 上传完成：成功 ${completed} 个，失败 ${failed} 个`;
+  showToast(`上传完成，成功 ${completed} 个`);
+  setTimeout(() => {
+    getFileList();
+    setTimeout(() => { container.style.display = 'none'; }, 2000);
+  }, 500);
+}
+
+// ---------- 删除 ----------
+async function delItem(fullKey) {
+  if (!confirm('确定删除？\n删除后不可恢复')) return;
+  try {
+    await fetchWithCreds(`/del?key=${encodeURIComponent(fullKey)}&bucketId=${currentBucketId}`, {
+      method: 'DELETE'
+    });
+    getFileList();
+  } catch (e) {
+    showToast('删除失败：' + e.message);
+  }
+}
+
+// ---------- 复制链接 ----------
+function copyLink(url, fileName) {
+  if (!url) { showToast('该桶未配置公共域名，无法复制链接'); return; }
+  navigator.clipboard.writeText(url).then(() => {
+    showToast(`✅ 已复制链接：${fileName}`);
+  }).catch(() => {
+    showToast('❌ 复制失败，可手动复制');
+  });
+}
+
+// ---------- 下载 ----------
+async function downloadFile(downloadUrl) {
+  if (!downloadUrl) { showToast('下载地址无效'); return; }
+  const fullUrl = downloadUrl.startsWith('http') ? downloadUrl : downloadUrl;
+  try {
+    const response = await fetch(fullUrl, { credentials: 'include' });
+    if (!response.ok) { showToast('下载失败：' + response.status); return; }
+    let filename = '';
+    const contentDisposition = response.headers.get('Content-Disposition');
+    if (contentDisposition) {
+      const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+      if (utf8Match) { try { filename = decodeURIComponent(utf8Match[1]); } catch(e) {} }
+      if (!filename) {
+        const asciiMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+        if (asciiMatch) filename = asciiMatch[1];
+      }
+    }
+    if (!filename) {
+      const urlObj = new URL(fullUrl);
+      const keyParam = urlObj.searchParams.get('key');
+      if (keyParam) filename = decodeURIComponent(keyParam).split('/').pop() || 'download';
+    }
+    if (!filename) filename = 'download';
+
+    const blob = await response.blob();
+    const blobUrl = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = blobUrl;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(blobUrl);
+    showToast('下载已开始');
+  } catch (e) {
+    showToast('下载失败：' + e.message);
+  }
+}
+
+// ---------- 编辑器 ----------
+function openEditor(encodedKey, fileName) {
+  currentEditKey = decodeURIComponent(encodedKey);
+  document.getElementById('editorFileName').innerText = fileName;
+  document.getElementById('editorModal').classList.add('active');
+  const textarea = document.getElementById('editorContent');
+  textarea.value = '加载中...';
+  fetchWithCreds(`/read?key=${encodedKey}&bucketId=${currentBucketId}`)
+    .then(res => {
+      if (!res.ok) throw new Error('读取失败：' + res.status);
+      return res.json();
+    })
+    .then(json => { textarea.value = json.content; })
+    .catch(e => {
+      textarea.value = '';
+      showToast('读取文件失败：' + e.message);
+    });
+}
+function closeEditor() {
+  document.getElementById('editorModal').classList.remove('active');
+  currentEditKey = '';
+}
+async function saveEditor() {
+  if (!currentEditKey) return;
+  const content = document.getElementById('editorContent').value;
+  try {
+    const res = await fetchWithCreds(`/write?key=${encodeURIComponent(currentEditKey)}&bucketId=${currentBucketId}`, {
+      method: 'PUT',
+      body: JSON.stringify({ content })
+    });
+    const json = await res.json();
+    if (json.code === 200) {
+      showToast('✅ 保存成功');
+      closeEditor();
+      getFileList();
+    } else {
+      showToast('保存失败：' + json.msg);
+    }
+  } catch (e) {
+    showToast('保存失败：' + e.message);
+  }
+}
+
+// ---------- 重命名 ----------
+function openRename(encodedKey, oldName) {
+  currentRenameKey = decodeURIComponent(encodedKey);
+  document.getElementById('renameOldName').innerText = oldName;
+  document.getElementById('renameInput').value = oldName;
+  document.getElementById('renameModal').classList.add('active');
+  document.getElementById('renameInput').focus();
+  document.getElementById('renameInput').select();
+}
+function openRenameFromEditor() {
+  if (!currentEditKey) return;
+  const fileName = currentEditKey.split('/').pop();
+  openRename(encodeURIComponent(currentEditKey), fileName);
+}
+function closeRename() {
+  document.getElementById('renameModal').classList.remove('active');
+  currentRenameKey = '';
+}
+async function submitRename() {
+  if (!currentRenameKey) return;
+  const oldKey = currentRenameKey;
+  const newName = document.getElementById('renameInput').value.trim();
+  if (!newName) { showToast('请输入新名称'); return; }
+  if (newName.includes('/')) { showToast('名称不能包含 /'); return; }
+
+  try {
+    const res = await fetchWithCreds(`/rename?oldKey=${encodeURIComponent(oldKey)}&newName=${encodeURIComponent(newName)}&bucketId=${currentBucketId}`, {
+      method: 'POST'
+    });
+    const json = await res.json();
+    if (json.code === 200) {
+      showToast('✅ 重命名成功');
+      if (currentEditKey && currentEditKey === oldKey) {
+        const lastSlashIndex = oldKey.lastIndexOf('/');
+        const dirPath = lastSlashIndex >= 0 ? oldKey.substring(0, lastSlashIndex + 1) : '';
+        currentEditKey = dirPath + newName;
+        document.getElementById('editorFileName').innerText = newName;
+      }
+      closeRename();
+      getFileList();
+    } else {
+      showToast('重命名失败：' + (json.msg || res.status));
+    }
+  } catch (e) {
+    showToast('重命名失败：' + e.message);
+  }
+}
+
+// ---------- 导出链接 ----------
+function exportAllLinks() {
+  if (currentFilesList.length === 0) {
+    showToast('当前目录无文件，无法导出');
+    return;
+  }
+  let text = "文件名\t文件链接\n";
+  currentFilesList.forEach(f => {
+    text += `${f.name}\t${f.url || '（无公共域名）'}\n`;
+  });
+  navigator.clipboard.writeText(text).then(() => {
+    showToast(`📋 已复制 ${currentFilesList.length} 个文件的链接到剪贴板`);
+  }).catch(() => {
+    showToast('复制失败，可手动选择');
+  });
+}
+
+// ========== 页面加载自动检查登录状态 ==========
+window.onload = async function() {
+  const loadingOverlay = document.getElementById('loadingOverlay');
+  loadingOverlay.style.display = 'flex';
+  try {
+    const res = await fetchWithCreds('/admin/buckets');
+    if (res.status === 401) return;
+    const json = await res.json();
+    if (json.code === 200) {
+      document.getElementById('loginBox').style.display = 'none';
+      const mainBox = document.getElementById('mainBox');
+      mainBox.style.display = 'block';
+      void mainBox.offsetWidth;
+      mainBox.classList.add('visible');
+      await loadBuckets();
+      fetchWithCreds('/admin/update-session', { method: 'POST' }).catch(() => {});
+    }
+  } catch (e) {
+    console.warn('自动登录检查失败，请手动登录', e);
+  } finally {
+    loadingOverlay.classList.add('fade-out');
+    setTimeout(() => {
+      loadingOverlay.style.display = 'none';
+    }, 400);
+  }
+};
+</script>
+</body>
+</html>
