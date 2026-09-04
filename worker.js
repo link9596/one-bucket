@@ -238,7 +238,7 @@ export default {
     const path = url.pathname;
     const method = request.method;
 
-    // ---- 定义 API 路径（精确匹配 + 方法） ----
+    // ---- API 路径定义 ----
     const apiMap = {
       '/login': ['POST'],
       '/logout': ['POST'],
@@ -261,27 +261,33 @@ export default {
 
     // ---- 非 API 请求：代理到 GitHub Pages 前端 ----
     if (!isApi) {
-      const frontendBase = 'https://link9596.github.io/one-bucket-pages/';
+      const frontendBase = 'https://link9596.github.io/one-bucket'; // 你的前端仓库地址
       const targetUrl = new URL(path + url.search, frontendBase);
 
-      // 构造代理请求（保留 method、headers、body）
       const proxyRequest = new Request(targetUrl.toString(), {
         method: request.method,
         headers: request.headers,
         body: request.body,
-        // 如果 request 有 cf 属性可以保留，但代理转发不需要
       });
 
       try {
         const proxyResponse = await fetch(proxyRequest);
 
-        // 如果是重定向（3xx），需要修改 Location 头，将域名替换为当前 Worker 域名
+        // 处理重定向（3xx）
         if (proxyResponse.status >= 300 && proxyResponse.status < 400) {
           const location = proxyResponse.headers.get('Location');
           if (location) {
             const locationUrl = new URL(location, frontendBase);
-            // 将目标域名替换为当前 Worker 域名，保持路径不变
-            const newLocation = url.origin + locationUrl.pathname + locationUrl.search;
+            // 获取相对路径：去掉 frontendBase 的 pathname 部分
+            const basePath = new URL(frontendBase).pathname; // 如 "/one-bucket/"
+            // 确保 basePath 以 / 结尾
+            const basePathNormalized = basePath.endsWith('/') ? basePath : basePath + '/';
+            let relativePath = locationUrl.pathname;
+            if (relativePath.startsWith(basePathNormalized)) {
+              relativePath = '/' + relativePath.slice(basePathNormalized.length);
+            }
+            // 如果 relativePath 为空或只有 /，则保持 /
+            const newLocation = url.origin + (relativePath || '/') + locationUrl.search;
             const headers = new Headers(proxyResponse.headers);
             headers.set('Location', newLocation);
             return new Response(proxyResponse.body, {
@@ -292,28 +298,8 @@ export default {
           }
         }
 
-        // 如果是 404 且请求的不是静态资源（根据 Accept 或路径扩展名判断），返回 index.html（SPA fallback）
-        if (proxyResponse.status === 404) {
-          const accept = request.headers.get('Accept') || '';
-          const isHtmlRequest = accept.includes('text/html') || !path.includes('.');
-          if (isHtmlRequest) {
-            // 重新请求 index.html
-            const indexUrl = new URL('/', frontendBase);
-            const indexResponse = await fetch(indexUrl.toString(), {
-              method: 'GET',
-              headers: { 'Accept': 'text/html' },
-            });
-            return new Response(indexResponse.body, {
-              status: 200,
-              headers: {
-                'Content-Type': 'text/html; charset=utf-8',
-                'Cache-Control': 'no-cache',
-              },
-            });
-          }
-        }
-
-        // 正常返回响应（删除一些可能干扰的头）
+        // 对于 404，直接返回 GitHub 的 404 页面（如果你在仓库中放置了 404.html，它会显示你的 SPA 页面）
+        // 所以无需额外 fallback
         const responseHeaders = new Headers(proxyResponse.headers);
         responseHeaders.delete('content-security-policy');
         return new Response(proxyResponse.body, {
@@ -322,11 +308,11 @@ export default {
           headers: responseHeaders,
         });
       } catch (error) {
-        // 代理失败时返回简单错误页面
         return new Response('Proxy error: ' + error.message, { status: 502 });
       }
     }
 
+    // ---------- 以下是原有 API 处理逻辑 ----------
     const ALLOW_ORIGIN = env.ALLOW_ORIGIN || 'https://link9596.github.io';
     const corsHeaders = {
       "Access-Control-Allow-Origin": ALLOW_ORIGIN,
@@ -416,7 +402,7 @@ export default {
       return Response.json({ code: 200, msg: `密码已修改，已注销 ${deletedCount} 个会话` }, { headers: corsHeaders });
     }
 
-    // 全局鉴权（除登录、登出、改密外）
+    // 全局鉴权
     if (path !== "/login" && path !== "/logout" && path !== "/admin/change-password") {
       const token = getToken();
       if (!token) {
@@ -428,7 +414,7 @@ export default {
       }
     }
 
-    // 更新会话活动时间
+    // 更新会话
     if (path === "/admin/update-session" && request.method === "POST") {
       const token = getToken();
       if (token) {
@@ -458,7 +444,7 @@ export default {
       if (!success) {
         return Response.json({ code: 404, msg: "记录不存在" }, { status: 404, headers: corsHeaders });
       }
-      return Response.json({ code: 200, msg: "已删除该登录会话，对应设备需要重新登录" }, { headers: corsHeaders });
+      return Response.json({ code: 200, msg: "已删除该登录会话" }, { headers: corsHeaders });
     }
 
     // 桶配置管理
