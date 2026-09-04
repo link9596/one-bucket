@@ -261,7 +261,7 @@ export default {
 
     // ---- 非 API 请求：代理到 GitHub Pages 前端（SPA 模式） ----
     if (!isApi) {
-      const frontendBase = 'https://link9596.github.io/r2-s3-test2';
+      const frontendBase = 'https://link9596.github.io/one-bucket';
       // 静态资源匹配：以 /file/ 开头，或常见扩展名
       const isStatic = path.startsWith('/file/') || /\.(css|js|png|jpg|jpeg|gif|svg|ico|webp|woff2?|ttf|eot|json|xml|txt)$/.test(path);
       
