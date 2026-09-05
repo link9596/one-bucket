@@ -257,25 +257,23 @@ async function addLoginHistory(env, info) {
     history[existingIndex].token = info.token;
     history[existingIndex].id = info.id;
   } else {
-    // 新增记录：先清空相同 token 的旧记录 token 字段，避免一个 token 关联多条
-    history.forEach(item => {
-      if (item.token === info.token) {
-        item.token = '';
-      }
-    });
     history.unshift(info);
     if (history.length > MAX_HISTORY) history = history.slice(0, MAX_HISTORY);
   }
   await env.SESSION_KV.put(LOGIN_HISTORY_KEY, JSON.stringify(history));
 }
 
-async function updateLoginHistoryByToken(env, token) {
+// 修改：支持更新 IP 和 UA
+async function updateLoginHistoryByToken(env, token, ip, ua) {
   const raw = await env.SESSION_KV.get(LOGIN_HISTORY_KEY, 'json');
   if (!raw) return;
   let history = raw;
   const index = history.findIndex(item => item.token === token);
   if (index !== -1) {
+    // 更新时间，如果提供了 ip/ua 则一并更新
     history[index].time = new Date().toISOString();
+    if (ip !== undefined) history[index].ip = ip;
+    if (ua !== undefined) history[index].ua = ua;
     await env.SESSION_KV.put(LOGIN_HISTORY_KEY, JSON.stringify(history));
   }
 }
@@ -699,40 +697,13 @@ export default {
       }
     }
 
-    // ---- 更新会话（自动登录时调用，检测 IP/UA 变化） ----
+    // ---- 更新会话（自动登录时调用，直接更新时间和 IP/UA） ----
     if (path === "/admin/update-session" && method === "POST") {
       const token = getToken();
       if (token) {
         const ua = request.headers.get('User-Agent') || '';
-        const history = await getLoginHistory(env);
-        const index = history.findIndex(item => item.token === token);
-        if (index !== -1) {
-          const record = history[index];
-          if (record.ip !== clientIp || record.ua !== ua) {
-            // IP 或 UA 变化，新增一条记录
-            const newRecord = {
-              id: crypto.randomUUID(),
-              time: new Date().toISOString(),
-              ua: ua,
-              ip: clientIp,
-              token: token
-            };
-            await addLoginHistory(env, newRecord);
-          } else {
-            // 无变化，仅更新时间
-            await updateLoginHistoryByToken(env, token);
-          }
-        } else {
-          // 历史记录中无此 token（可能刚创建但未记录？或记录丢失），补一条
-          const newRecord = {
-            id: crypto.randomUUID(),
-            time: new Date().toISOString(),
-            ua: ua,
-            ip: clientIp,
-            token: token
-          };
-          await addLoginHistory(env, newRecord);
-        }
+        // 直接更新对应 token 的记录，无论 IP 是否变化都更新时间、IP、UA
+        await updateLoginHistoryByToken(env, token, clientIp, ua);
       }
       return Response.json({ code: 200, msg: "OK" }, {
         headers: { 'Content-Type': 'application/json;charset=utf-8' }
