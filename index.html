@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <link rel="shortcut icon" sizes="128x128" href="https://link9596.github.io/one-bucket/favicon.svg">
+  <link rel="shortcut icon" sizes="128x128" href="/file/favicon.png">
   <title>OneBucket</title>
   <style>
     :root {
@@ -317,6 +317,28 @@
       color: var(--text-muted); transition: color 0.2s; padding: 4px; box-shadow: none;
     }
     .bucket-card .delete-icon:hover { color: var(--btn-danger); }
+
+    /* 默认桶星星按钮 */
+    .set-default-btn {
+      background: none;
+      border: none;
+      cursor: pointer;
+      padding: 4px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      color: var(--text-muted);
+      transition: color 0.2s, transform 0.2s;
+      box-shadow: none;
+    }
+    .set-default-btn:hover {
+      color: #fbbf24;
+      transform: scale(1.1);
+    }
+    .set-default-btn svg {
+      width: 20px;
+      height: 20px;
+    }
 
     /* 添加桶卡片样式 */
     .add-bucket-card {
@@ -869,8 +891,10 @@ async function loadBuckets() {
       bucketsConfig = json.data;
       bucketSizes = {};
       renderBucketOptions();
-      if (bucketsConfig.length > 0) {
-        currentBucketId = bucketsConfig[0].id;
+      // 优先选择默认桶
+      const defaultBucket = bucketsConfig.find(b => b.isDefault === true);
+      currentBucketId = defaultBucket ? defaultBucket.id : (bucketsConfig.length > 0 ? bucketsConfig[0].id : '');
+      if (currentBucketId) {
         updateBucketSelectLabel();
         document.querySelectorAll('.custom-select-option').forEach(opt => {
           opt.classList.toggle('selected', opt.dataset.value === currentBucketId);
@@ -996,12 +1020,13 @@ function showAccountView() {
 
 function addBucketRow() {
   editingBucketIndex = -1;
-  editingTempBucket = { id: '', name: '', accountId: '', endpoint: '', accessKeyId: '', secretAccessKey: '', apiToken: '', publicDomain: '', hasSecret: false, hasToken: false };
+  editingTempBucket = { id: '', name: '', accountId: '', endpoint: '', accessKeyId: '', secretAccessKey: '', apiToken: '', publicDomain: '', hasSecret: false, hasToken: false, isDefault: false };
   document.getElementById('bucketManagerTitle').innerText = '✏️ 添加桶';
   renderBucketDetailFormFromTemp();
   switchView('detail');
 }
 
+// 渲染桶卡片列表
 function renderBucketCardList() {
   const container = document.getElementById('bucketCardList');
   container.innerHTML = '';
@@ -1009,7 +1034,7 @@ function renderBucketCardList() {
     const card = document.createElement('div');
     card.className = 'bucket-card';
     card.addEventListener('click', (e) => {
-      if (e.target.closest('.delete-icon')) return;
+      if (e.target.closest('.delete-icon') || e.target.closest('.set-default-btn')) return;
       showBucketDetail(index);
     });
 
@@ -1025,6 +1050,11 @@ function renderBucketCardList() {
 
     const domainHtml = b.publicDomain ? `<div class="card-domain">🌐 ${escapeHtml(b.publicDomain)}</div>` : '';
 
+    // 星星按钮（SVG）
+    const starSvg = b.isDefault 
+      ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="1em" height="1em" fill="currentColor"><path d="M12 2l2.4 7.2h7.6l-6 4.8 2.4 7.2-6-4.8-6 4.8 2.4-7.2-6-4.8h7.6z"/></svg>` // 实心星
+      : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="1em" height="1em" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2l2.4 7.2h7.6l-6 4.8 2.4 7.2-6-4.8-6 4.8 2.4-7.2-6-4.8h7.6z"/></svg>`; // 空心星
+
     card.innerHTML = `
       <div class="card-header">
         <div>
@@ -1032,6 +1062,9 @@ function renderBucketCardList() {
           <div class="card-bucket-name">${escapeHtml(b.id || '无ID')}</div>
           ${domainHtml}
         </div>
+        <button class="set-default-btn" onclick="event.stopPropagation(); setDefaultBucket('${b.id}')" title="${b.isDefault ? '当前默认桶' : '设为默认桶'}">
+          ${starSvg}
+        </button>
       </div>
       <div class="card-footer">
         <button class="delete-icon" onclick="deleteBucketFromCard(${index})" title="删除桶">
@@ -1053,16 +1086,43 @@ function renderBucketCardList() {
   container.appendChild(addCard);
 }
 
+// 设置默认桶
+async function setDefaultBucket(id) {
+  // 找到目标桶
+  const targetBucket = bucketsConfig.find(b => b.id === id);
+  if (!targetBucket) return;
+  
+  // 将所有桶的 isDefault 设为 false，再设置目标桶为 true
+  bucketsConfig.forEach(b => b.isDefault = (b.id === id));
+  try {
+    const res = await fetchWithCreds('/admin/buckets', {
+      method: 'POST',
+      body: JSON.stringify({ data: bucketsConfig })
+    });
+    const json = await res.json();
+    if (json.code === 200) {
+      showToast(`✅ 已将“${targetBucket.name || id}”设为默认桶`);
+      renderBucketCardList();
+      renderBucketOptions();
+    } else {
+      showToast('设置失败：' + json.msg);
+    }
+  } catch (e) {
+    showToast('设置失败：' + e.message);
+  }
+}
+
 function deleteBucketFromCard(index) {
   event.stopPropagation();
   if (!confirm('确定删除该桶配置吗？')) return;
+  const deletedId = bucketsConfig[index].id;
   bucketsConfig.splice(index, 1);
-  if (currentBucketId === bucketsConfig[index]?.id) {
+  if (currentBucketId === deletedId) {
     currentBucketId = '';
     document.getElementById('bucketSelectLabel').innerText = '-- 请选择桶 --';
     document.getElementById('fileList').innerHTML = '<tr><td colspan="4">请先添加桶配置</td></tr>';
   }
-  delete bucketSizes[bucketsConfig[index]?.id];
+  delete bucketSizes[deletedId];
   renderBucketCardList();
   renderBucketOptions();
   saveBucketsConfigToServer();
@@ -1200,6 +1260,7 @@ async function saveBucketConfigs() {
       accountId: newData.accountId || '',
       hasSecret: newData.secretAccessKey ? true : false,
       hasToken: newData.apiToken ? true : false,
+      isDefault: false,
     };
     bucketsConfig.push(newBucket);
   } else {
@@ -1216,6 +1277,7 @@ async function saveBucketConfigs() {
       apiToken: newData.apiToken ? newData.apiToken : oldBucket.apiToken,
       hasSecret: newData.secretAccessKey ? true : oldBucket.hasSecret,
       hasToken: newData.apiToken ? true : oldBucket.hasToken,
+      isDefault: oldBucket.isDefault || false,
     };
     bucketsConfig[editingBucketIndex] = updatedBucket;
   }
@@ -1298,7 +1360,7 @@ async function loadLoginHistory() {
   }
 }
 
-// 新增：检测操作系统并返回对应图标
+// 检测操作系统并返回对应图标
 function detectOS(ua) {
   if (/Windows/i.test(ua)) return 'windows';
   if (/iPhone|iPad|iPod|Macintosh|Mac OS X/i.test(ua)) return 'apple';
@@ -1315,7 +1377,7 @@ function getOSIcon(ua) {
   } else if (os === 'android') {
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="1em" height="1em" style="flex-shrink:0;"><defs><mask id="yesicon-icon-park-solid-android-SVGbhkbodZm"><g fill="none"><path fill="#fff" stroke="#fff" stroke-linejoin="round" stroke-width="4" d="M43.901 36H4.1C5.103 25.893 13.63 18 24 18c10.372 0 18.899 7.893 19.902 18Z"/><path stroke="#fff" stroke-linecap="round" stroke-linejoin="round" stroke-width="4" d="m14 20l-4-7m23 7l4-7"/><circle cx="15" cy="29" r="2" fill="#000"/><circle cx="33" cy="29" r="2" fill="#000"/></g></mask></defs><path fill="currentColor" d="M0 0h48v48H0z" mask="url(#yesicon-icon-park-solid-android-SVGbhkbodZm)"/></svg>';
   } else {
-    return ''; // 未知系统不显示图标
+    return '';
   }
 }
 
