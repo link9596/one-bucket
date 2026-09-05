@@ -15,7 +15,7 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
 
 
-[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/link9596/Cloudflare-Typecho)
+[![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/link9596/one-bucket)
 
 [**⌨️ 快速开始**](#快速开始) · [**☁️ 在线预览**](https://link9596.github.io/one-bucket) · [**💬 反馈**](https://github.com/link9596/one-bucket/issues) · [**🛡️ 安全**](#安全设计) · [**💡 常见问题**](#常见问题)
 
