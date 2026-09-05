@@ -151,7 +151,6 @@ async function recordFailedAttempt(env, ip) {
   const key = RATE_LIMIT_PREFIX + ip;
   const now = Date.now();
   const info = (await getRateLimitInfo(env, ip)) || { count: 0, firstAttempt: now };
-  // 如果超过窗口时间，重置计数
   if (now - info.firstAttempt > RATE_WINDOW_MS) {
     info.count = 0;
     info.firstAttempt = now;
@@ -170,7 +169,6 @@ async function isRateLimited(env, ip) {
   const info = await getRateLimitInfo(env, ip);
   if (!info) return false;
   const now = Date.now();
-  // 如果超过窗口时间，视为未限制
   if (now - info.firstAttempt > RATE_WINDOW_MS) return false;
   return info.count >= MAX_FAILED_ATTEMPTS;
 }
@@ -187,7 +185,6 @@ async function getBucketsConfig(env) {
   const decrypted = await Promise.all(
     raw.map(async (item) => {
       const result = { ...item };
-      // 解密 secretAccessKey 和 apiToken
       for (const field of ['secretAccessKey', 'apiToken']) {
         const val = item[field];
         if (val && typeof val === 'object' && val.iv) {
@@ -195,12 +192,10 @@ async function getBucketsConfig(env) {
             result[field] = await decryptText(val, masterKey);
           } catch (e) {
             console.error(`Failed to decrypt ${field} for bucket ${item.id}`, e);
-            result[field] = ''; // 解密失败置空
+            result[field] = '';
           }
         }
-        // 如果已经是明文字符串（可能是旧数据），保留（但按需求无需兼容，这里仅防御）
       }
-      // accessKeyId 保持原样（明文）
       return result;
     })
   );
@@ -215,17 +210,14 @@ async function saveBucketsConfig(env, configs) {
   const encrypted = await Promise.all(
     configs.map(async (item) => {
       const result = { ...item };
-      // 加密敏感字段（仅 secretAccessKey 和 apiToken）
       for (const field of ['secretAccessKey', 'apiToken']) {
         const val = item[field];
         if (typeof val === 'string' && val.trim() !== '') {
           result[field] = await encryptText(val, masterKey);
         } else {
-          // 如果值为空或非字符串，删除此属性（避免存储空加密对象）
           delete result[field];
         }
       }
-      // accessKeyId 保持明文，直接保留
       return result;
     })
   );
@@ -236,7 +228,7 @@ function getBucketById(config, id) {
   return config.find(b => b.id === id);
 }
 
-// ----- 管理员密码（存储为 { salt, hash }） -----
+// ----- 管理员密码 -----
 async function getAdminPwdHash(env) {
   const raw = await env.BUCKET_CONFIG.get('admin_pwd');
   if (!raw) return null;
@@ -260,10 +252,17 @@ async function addLoginHistory(env, info) {
   let history = raw || [];
   const existingIndex = history.findIndex(item => item.ip === info.ip && item.ua === info.ua);
   if (existingIndex !== -1) {
+    // 相同 IP+UA，更新时间和 token
     history[existingIndex].time = info.time;
     history[existingIndex].token = info.token;
     history[existingIndex].id = info.id;
   } else {
+    // 新增记录：先清空相同 token 的旧记录 token 字段，避免一个 token 关联多条
+    history.forEach(item => {
+      if (item.token === info.token) {
+        item.token = '';
+      }
+    });
     history.unshift(info);
     if (history.length > MAX_HISTORY) history = history.slice(0, MAX_HISTORY);
   }
@@ -436,21 +435,13 @@ class R2CompatibleClient {
     throw new Error(`Head failed: ${resp.status}`);
   }
 
-  // 新增：递归删除文件夹
   async deleteFolder(prefix) {
-    // 确保 prefix 以 '/' 结尾
     if (!prefix.endsWith('/')) prefix += '/';
-    
-    // 列出所有前缀为该 prefix 的对象（不含 delimiter，递归所有子对象）
     const listResult = await this.list({ prefix, delimiter: '' });
     const objects = listResult.objects;
-    
-    // 逐个删除对象
     for (const obj of objects) {
       await this.delete(obj.key);
     }
-    
-    // 删除文件夹占位对象（如果存在）
     await this.delete(prefix);
   }
 }
@@ -485,12 +476,10 @@ export default {
     const path = url.pathname;
     const method = request.method;
 
-    // 检查 MASTER_KEY 是否设置
     if (!env.MASTER_KEY) {
       return new Response('MASTER_KEY environment variable is not set', { status: 500 });
     }
 
-    // ---- 前端基础地址 ----
     const frontendBase = env.ADMIN_URL || 'https://link9596.github.io/one-bucket';
     const frontendOrigin = new URL(frontendBase).origin;
 
@@ -515,7 +504,7 @@ export default {
       '/upload': ['POST'],
       '/mkdir': ['POST'],
       '/del': ['DELETE'],
-      '/del-batch': ['POST'],   // 新增批量删除
+      '/del-batch': ['POST'],
       '/download': ['GET'],
       '/read': ['GET'],
       '/write': ['PUT'],
@@ -526,17 +515,12 @@ export default {
 
     // ---- 非 API 请求：代理前端 ----
     if (!isApi) {
-      const isStatic = path.startsWith('/file/') || /\.(css|js|png|jpg|jpeg|gif|svg|ico|webp|woff2?|ttf|eot|json|xml|txt)$/.test(path);
-      // 构造安全的相对路径（去掉开头的 '/' 以避免协议相对解析）
       const relativePath = path.startsWith('/') ? path.slice(1) : path;
       const targetUrl = new URL(relativePath + url.search, frontendBase + (frontendBase.endsWith('/') ? '' : '/'));
-      
-      // 检查目标 origin 是否与 frontendBase 一致，防止 SSRF
       if (targetUrl.origin !== frontendOrigin) {
         return new Response('Invalid proxy target', { status: 403 });
       }
 
-      // 构造代理请求，过滤敏感请求头（仅保留安全头）
       const safeHeaders = new Headers();
       const allowedHeaders = ['accept', 'accept-language', 'user-agent', 'cache-control', 'if-none-match', 'if-modified-since', 'range'];
       for (const [key, value] of request.headers.entries()) {
@@ -589,7 +573,6 @@ export default {
 
     // ---- 登录 ----
     if (path === "/login" && method === "POST") {
-      // 速率限制检查
       if (await isRateLimited(env, clientIp)) {
         return Response.json({ code: 429, msg: "尝试次数过多，请稍后再试" }, { status: 429 });
       }
@@ -611,8 +594,7 @@ export default {
         await recordFailedAttempt(env, clientIp);
         return Response.json({ code: 401, msg: "密码错误" }, { status: 401 });
       }
-      
-      // 登录成功，重置速率限制
+
       await resetRateLimit(env, clientIp);
 
       const token = crypto.randomUUID();
@@ -623,7 +605,7 @@ export default {
         id: crypto.randomUUID(),
         time: new Date().toISOString(),
         ua: request.headers.get('User-Agent') || '',
-        ip: clientIp, // 使用统一的 clientIp
+        ip: clientIp,
         token: token
       };
       await addLoginHistory(env, historyRecord);
@@ -636,9 +618,8 @@ export default {
       });
     }
 
-    // ---- 登出（增加 CSRF 防护） ----
+    // ---- 登出 ----
     if (path === "/logout" && method === "POST") {
-      // CSRF 检查：如果存在 Origin 头，必须与当前 Worker 的 origin 一致
       const originHeader = request.headers.get('Origin');
       if (originHeader) {
         const workerOrigin = new URL(request.url).origin;
@@ -657,11 +638,10 @@ export default {
       });
     }
 
-    // ---- 修改密码（强制会话令牌，首次设置除外） ----
+    // ---- 修改密码 ----
     if (path === "/admin/change-password" && method === "POST") {
       const stored = await getAdminPwdHash(env);
 
-      // 如果密码已设置，则要求有效会话令牌
       if (stored) {
         const token = getToken();
         if (!token) {
@@ -673,7 +653,6 @@ export default {
         }
       }
 
-      // 速率限制检查（防止暴力破解旧密码）
       if (await isRateLimited(env, clientIp)) {
         return Response.json({ code: 429, msg: "尝试次数过多，请稍后再试" }, { status: 429 });
       }
@@ -698,7 +677,6 @@ export default {
         }
       }
 
-      // 验证通过，重置速率限制
       await resetRateLimit(env, clientIp);
 
       const newHashObj = await hashPassword(newPwd);
@@ -721,11 +699,40 @@ export default {
       }
     }
 
-    // ---- 更新会话 ----
+    // ---- 更新会话（自动登录时调用，检测 IP/UA 变化） ----
     if (path === "/admin/update-session" && method === "POST") {
       const token = getToken();
       if (token) {
-        await updateLoginHistoryByToken(env, token);
+        const ua = request.headers.get('User-Agent') || '';
+        const history = await getLoginHistory(env);
+        const index = history.findIndex(item => item.token === token);
+        if (index !== -1) {
+          const record = history[index];
+          if (record.ip !== clientIp || record.ua !== ua) {
+            // IP 或 UA 变化，新增一条记录
+            const newRecord = {
+              id: crypto.randomUUID(),
+              time: new Date().toISOString(),
+              ua: ua,
+              ip: clientIp,
+              token: token
+            };
+            await addLoginHistory(env, newRecord);
+          } else {
+            // 无变化，仅更新时间
+            await updateLoginHistoryByToken(env, token);
+          }
+        } else {
+          // 历史记录中无此 token（可能刚创建但未记录？或记录丢失），补一条
+          const newRecord = {
+            id: crypto.randomUUID(),
+            time: new Date().toISOString(),
+            ua: ua,
+            ip: clientIp,
+            token: token
+          };
+          await addLoginHistory(env, newRecord);
+        }
       }
       return Response.json({ code: 200, msg: "OK" }, {
         headers: { 'Content-Type': 'application/json;charset=utf-8' }
@@ -768,7 +775,7 @@ export default {
         name: c.name,
         accountId: c.accountId,
         endpoint: c.endpoint,
-        accessKeyId: c.accessKeyId,        // 明文
+        accessKeyId: c.accessKeyId,
         hasSecret: !!c.secretAccessKey,
         hasToken: !!c.apiToken,
         publicDomain: c.publicDomain || ''
@@ -782,7 +789,6 @@ export default {
       const body = await request.json();
       const newConfigs = body.data || [];
       const oldConfigs = await getBucketsConfig(env);
-      // 合并（保留未提供的加密字段，避免覆盖）
       const merged = newConfigs.map(newItem => {
         const oldItem = oldConfigs.find(o => o.id === newItem.id);
         return {
@@ -790,7 +796,7 @@ export default {
           name: newItem.name,
           accountId: newItem.accountId,
           endpoint: newItem.endpoint,
-          accessKeyId: newItem.accessKeyId,   // 明文直接覆盖
+          accessKeyId: newItem.accessKeyId,
           secretAccessKey: newItem.secretAccessKey || oldItem?.secretAccessKey || '',
           apiToken: newItem.apiToken || oldItem?.apiToken || '',
           publicDomain: newItem.publicDomain || oldItem?.publicDomain || ''
@@ -868,13 +874,11 @@ export default {
       });
     }
 
-    // ---- 删除单个文件或文件夹（递归删除文件夹） ----
     if (path === "/del" && method === "DELETE") {
       const fullKey = decodeURIComponent(url.searchParams.get("key"));
       if (!fullKey) return Response.json({ code: 400, msg: "缺少路径" }, { status: 400 });
       
       if (fullKey.endsWith('/')) {
-        // 文件夹递归删除
         await bucket.deleteFolder(fullKey);
       } else {
         await bucket.delete(fullKey);
@@ -885,7 +889,6 @@ export default {
       });
     }
 
-    // ---- 批量删除 ----
     if (path === "/del-batch" && method === "POST") {
       const body = await request.json();
       const keys = body.keys;
