@@ -1,6 +1,6 @@
 <div align="center">
-
-# 🪣 OneBucket
+  
+<img style="width:60px" src="https://raw.githubusercontent.com/link9596/one-bucket/refs/heads/main/favicon.svg" alt=""><h1>OneBucket</h1>
 
 **一个基于 Cloudflare Workers 的多桶云存储网盘 / 文件管理器**
 
