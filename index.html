@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <link rel="shortcut icon" sizes="128x128" href="https://github.com/link9596/one-bucket/favicon.png">
+  <link rel="shortcut icon" sizes="128x128" href="/file/favicon.png">
   <title>OneBucket</title>
   <style>
     :root {
@@ -43,6 +43,8 @@
       --toast-color: #ffffff;
       --scroll-bar:#c4cbd5;
       --scroll-bar-hover:#a0aab9;
+      --star-default: #FCD53F;
+      --star-muted: #9ca3af;
     }
 
     @media (prefers-color-scheme: dark) {
@@ -83,6 +85,8 @@
         --toast-color: #f1f5f9;
         --scroll-bar:#3a495f;
         --scroll-bar-hover:#556883;
+        --star-default: #FCD53F;
+        --star-muted: #6b7280;
       }
     }
 
@@ -168,7 +172,7 @@
     .status-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
     .tip { font-size: 0.8rem; color: var(--text-secondary); background: var(--bg-progress); padding: 8px 12px; border-radius: 20px; }
     
-    /* 刷新按钮样式（同时被新建文件夹、批量删除按钮复用） */
+    /* 刷新按钮样式 */
     .refresh-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--bg-progress); border: none; cursor: pointer; color: var(--text-secondary); transition: all 0.2s; padding:0px;}
     .refresh-btn:hover { background: var(--border-light); color: var(--text-primary); }
     .refresh-btn:active { transform: rotate(180deg); }
@@ -177,7 +181,7 @@
     .operate-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--bg-progress); border: none; cursor: pointer; color: var(--text-secondary); transition: all 0.2s; padding:0px;}
     .operate-btn:hover { background: var(--border-light); color: var(--text-primary); }
     .operate-btn svg { width: 18px; height: 18px; }
-    /* 批量删除按钮额外样式（覆盖 refresh-btn 的颜色和禁用状态） */
+    /* 批量删除按钮额外样式 */
     .batch-del-btn {
       color: var(--text-muted);
       cursor: not-allowed;
@@ -248,7 +252,7 @@
     .empty-row td { text-align: center; color: var(--text-muted); padding: 40px; }
     .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: var(--toast-bg); color: var(--toast-color); padding: 8px 18px; border-radius: 40px; font-size: 0.8rem; z-index: 9999; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
 
-    /* 模态框公用（带缩放动画） */
+    /* 模态框公用 */
     .modal-overlay {
       display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0,0,0,0.6); z-index: 300; align-items: center; justify-content: center;
@@ -265,7 +269,7 @@
     .modal-content h3 { color: var(--text-primary); margin-bottom: 10px; }
     .modal-actions { margin-top: 15px; display: flex; gap: 10px; justify-content: flex-end; border-top: 1px solid var(--border-light); padding-top: 15px; }
 
-    /* 桶配置表单网格：桌面端两列 */
+    /* 桶配置表单网格 */
     .bucket-config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     @media (max-width: 768px) {
       .bucket-config-grid { grid-template-columns: 1fr; }
@@ -313,7 +317,7 @@
     .bucket-card .card-footer { margin-top: auto; display: flex; justify-content: space-between; align-items: flex-end; }
     .bucket-card .card-usage { font-size: 0.75rem; color: var(--text-secondary); }
     .bucket-card .delete-icon {
-      position: absolute; bottom: 12px; right: 12px; background: none; border: none; cursor: pointer;
+      position: absolute; bottom: 10px; right: 15px; background: none; border: none; cursor: pointer;
       color: var(--text-muted); transition: color 0.2s; padding: 4px; box-shadow: none;
     }
     .bucket-card .delete-icon:hover { color: var(--btn-danger); }
@@ -323,17 +327,19 @@
       background: none;
       border: none;
       cursor: pointer;
-      padding: 4px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      color: var(--text-muted);
+      color: var(--star-muted);
       transition: color 0.2s, transform 0.2s;
       box-shadow: none;
     }
     .set-default-btn:hover {
-      color: #fbbf24;
+      color: var(--star-default);
       transform: scale(1.1);
+    }
+    .set-default-btn.is-default {
+      color: var(--star-default);
     }
     .set-default-btn svg {
       width: 20px;
@@ -503,7 +509,7 @@
 <div class="wrap" id="mainBox">
   <h2>☁️ OneBucket</h2>
 
-  <!-- 桶切换栏（自定义下拉） -->
+  <!-- 桶切换栏 -->
   <div style="display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:12px; width:100%;">
     <div class="custom-select" id="bucketSelectContainer">
       <div class="custom-select-trigger" onclick="toggleBucketDropdown()">
@@ -538,7 +544,7 @@
         </g>
       </svg>
     </button>
-    <!-- 新建文件夹按钮：复用 refresh-btn 类 -->
+    <!-- 新建文件夹按钮 -->
     <button class="operate-btn" id="newFolderBtn" title="新建文件夹" onclick="openNewFolderModal()">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="1em" height="1em">
         <g fill="none">
@@ -547,9 +553,9 @@
         </g>
       </svg>
     </button>
-    <!-- 批量删除按钮：复用 refresh-btn 并增加 batch-del-btn 特殊样式 -->
+    <!-- 批量删除按钮 -->
     <button class="operate-btn batch-del-btn" id="batchDelBtn" title="删除选中项" onclick="batchDelete()" disabled>
-      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="1em" height="1em"><g fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="4"><path stroke-linecap="round" d="M8 11h32M18 5h12"></path><path fill="currentColor" d="M12 17h24v23a3 3 0 0 1-3 3H15a3 3 0 0 1-3-3z"></path></g></svg>
+      <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="15px" height="15px"><g fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="4"><path stroke-linecap="round" d="M8 11h32M18 5h12"></path><path fill="currentColor" d="M12 17h24v23a3 3 0 0 1-3 3H15a3 3 0 0 1-3-3z"></path></g></svg>
     </button>
   </div>
 
@@ -1050,10 +1056,8 @@ function renderBucketCardList() {
 
     const domainHtml = b.publicDomain ? `<div class="card-domain">🌐 ${escapeHtml(b.publicDomain)}</div>` : '';
 
-    // 星星按钮
-    const starSvg = b.isDefault 
-      ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="1em" height="1em"><path fill="#FCD53F" d="m18.7 4.627l2.247 4.31a2.27 2.27 0 0 0 1.686 1.189l4.746.65c2.538.35 3.522 3.479 1.645 5.219l-3.25 2.999a2.23 2.23 0 0 0-.683 2.04l.793 4.398c.441 2.45-2.108 4.36-4.345 3.24l-4.536-2.25a2.28 2.28 0 0 0-2.006 0l-4.536 2.25c-2.238 1.11-4.786-.79-4.345-3.24l.793-4.399c.14-.75-.12-1.52-.682-2.04l-3.251-2.998c-1.877-1.73-.893-4.87 1.645-5.22l4.746-.65a2.23 2.23 0 0 0 1.686-1.189l2.248-4.309c1.144-2.17 4.264-2.17 5.398 0"/></svg>` // 实心星
-      : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="1em" height="1em"><path fill="currentColor" d="m18.7 4.627l2.247 4.31a2.27 2.27 0 0 0 1.686 1.189l4.746.65c2.538.35 3.522 3.479 1.645 5.219l-3.25 2.999a2.23 2.23 0 0 0-.683 2.04l.793 4.398c.441 2.45-2.108 4.36-4.345 3.24l-4.536-2.25a2.28 2.28 0 0 0-2.006 0l-4.536 2.25c-2.238 1.11-4.786-.79-4.345-3.24l.793-4.399c.14-.75-.12-1.52-.682-2.04l-3.251-2.998c-1.877-1.73-.893-4.87 1.645-5.22l4.746-.65a2.23 2.23 0 0 0 1.686-1.189l2.248-4.309c1.144-2.17 4.264-2.17 5.398 0"/></svg>`; // 空心星
+    // 统一使用实心星星 SVG，颜色通过 class 控制
+    const starSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="1em" height="1em"><path fill="currentColor" d="m18.7 4.627l2.247 4.31a2.27 2.27 0 0 0 1.686 1.189l4.746.65c2.538.35 3.522 3.479 1.645 5.219l-3.25 2.999a2.23 2.23 0 0 0-.683 2.04l.793 4.398c.441 2.45-2.108 4.36-4.345 3.24l-4.536-2.25a2.28 2.28 0 0 0-2.006 0l-4.536 2.25c-2.238 1.11-4.786-.79-4.345-3.24l.793-4.399c.14-.75-.12-1.52-.682-2.04l-3.251-2.998c-1.877-1.73-.893-4.87 1.645-5.22l4.746-.65a2.23 2.23 0 0 0 1.686-1.189l2.248-4.309c1.144-2.17 4.264-2.17 5.398 0"/></svg>`;
 
     card.innerHTML = `
       <div class="card-header">
@@ -1062,7 +1066,7 @@ function renderBucketCardList() {
           <div class="card-bucket-name">${escapeHtml(b.id || '无ID')}</div>
           ${domainHtml}
         </div>
-        <button class="set-default-btn" onclick="event.stopPropagation(); setDefaultBucket('${b.id}')" title="${b.isDefault ? '当前默认桶' : '设为默认桶'}">
+        <button class="set-default-btn ${b.isDefault ? 'is-default' : ''}" onclick="event.stopPropagation(); setDefaultBucket('${b.id}')" title="${b.isDefault ? '当前默认桶' : '设为默认桶'}">
           ${starSvg}
         </button>
       </div>
@@ -1088,11 +1092,9 @@ function renderBucketCardList() {
 
 // 设置默认桶
 async function setDefaultBucket(id) {
-  // 找到目标桶
   const targetBucket = bucketsConfig.find(b => b.id === id);
   if (!targetBucket) return;
   
-  // 将所有桶的 isDefault 设为 false，再设置目标桶为 true
   bucketsConfig.forEach(b => b.isDefault = (b.id === id));
   try {
     const res = await fetchWithCreds('/admin/buckets', {
@@ -1116,6 +1118,7 @@ function deleteBucketFromCard(index) {
   event.stopPropagation();
   if (!confirm('确定删除该桶配置吗？')) return;
   const deletedId = bucketsConfig[index].id;
+  const wasDefault = bucketsConfig[index].isDefault;
   bucketsConfig.splice(index, 1);
   if (currentBucketId === deletedId) {
     currentBucketId = '';
@@ -1123,6 +1126,12 @@ function deleteBucketFromCard(index) {
     document.getElementById('fileList').innerHTML = '<tr><td colspan="4">请先添加桶配置</td></tr>';
   }
   delete bucketSizes[deletedId];
+  
+  // 如果删除的是默认桶且还有其他桶，则自动将第一个桶设为默认（可选）
+  if (wasDefault && bucketsConfig.length > 0) {
+    bucketsConfig[0].isDefault = true;
+  }
+  
   renderBucketCardList();
   renderBucketOptions();
   saveBucketsConfigToServer();
@@ -1248,6 +1257,9 @@ async function saveBucketConfigs() {
     return;
   }
 
+  // 检查是否是第一个桶（新建时 bucketsConfig.length === 0 且 editingBucketIndex === -1）
+  const isFirstBucket = (bucketsConfig.length === 0 && editingBucketIndex === -1);
+
   if (editingBucketIndex === -1) {
     const newBucket = {
       id: newData.id,
@@ -1260,11 +1272,12 @@ async function saveBucketConfigs() {
       accountId: newData.accountId || '',
       hasSecret: newData.secretAccessKey ? true : false,
       hasToken: newData.apiToken ? true : false,
-      isDefault: false,
+      isDefault: isFirstBucket ? true : false, // 第一个桶自动默认
     };
     bucketsConfig.push(newBucket);
   } else {
     const oldBucket = bucketsConfig[editingBucketIndex];
+    // 编辑时保留 isDefault 字段，不自动更改
     const updatedBucket = {
       ...oldBucket,
       id: newData.id,
@@ -1277,7 +1290,7 @@ async function saveBucketConfigs() {
       apiToken: newData.apiToken ? newData.apiToken : oldBucket.apiToken,
       hasSecret: newData.secretAccessKey ? true : oldBucket.hasSecret,
       hasToken: newData.apiToken ? true : oldBucket.hasToken,
-      isDefault: oldBucket.isDefault || false,
+      // isDefault 保持不变，除非明确修改（目前界面无修改选项，所以保留）
     };
     bucketsConfig[editingBucketIndex] = updatedBucket;
   }
