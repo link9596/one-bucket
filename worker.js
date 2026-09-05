@@ -576,8 +576,16 @@ export default {
       return null;
     };
 
-    // 获取客户端 IP（用于速率限制）
-    const clientIp = request.headers.get('CF-Connecting-IP') || 'unknown';
+    // ---- 获取客户端 IP（统一处理） ----
+    const getClientIp = (req) => {
+      const cfIp = req.headers.get('CF-Connecting-IP');
+      if (cfIp) return cfIp;
+      const xff = req.headers.get('x-forwarded-for');
+      if (xff) return xff.split(',')[0].trim();
+      return 'unknown';
+    };
+
+    const clientIp = getClientIp(request);
 
     // ---- 登录 ----
     if (path === "/login" && method === "POST") {
@@ -615,7 +623,7 @@ export default {
         id: crypto.randomUUID(),
         time: new Date().toISOString(),
         ua: request.headers.get('User-Agent') || '',
-        ip: request.headers.get('CF-Connecting-IP') || '',
+        ip: clientIp, // 使用统一的 clientIp
         token: token
       };
       await addLoginHistory(env, historyRecord);
