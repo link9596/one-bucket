@@ -749,7 +749,8 @@ export default {
         accessKeyId: c.accessKeyId,
         hasSecret: !!c.secretAccessKey,
         hasToken: !!c.apiToken,
-        publicDomain: c.publicDomain || ''
+        publicDomain: c.publicDomain || '',
+        isDefault: !!c.isDefault   // 确保返回 isDefault 字段
       }));
       return Response.json({ code: 200, data: safe }, {
         headers: { 'Content-Type': 'application/json;charset=utf-8' }
@@ -770,7 +771,8 @@ export default {
           accessKeyId: newItem.accessKeyId,
           secretAccessKey: newItem.secretAccessKey || oldItem?.secretAccessKey || '',
           apiToken: newItem.apiToken || oldItem?.apiToken || '',
-          publicDomain: newItem.publicDomain || oldItem?.publicDomain || ''
+          publicDomain: newItem.publicDomain || oldItem?.publicDomain || '',
+          isDefault: !!newItem.isDefault   // 保留 isDefault 字段
         };
       });
       for (const c of merged) {
