@@ -669,25 +669,483 @@
 <div id="toast" class="toast"></div>
 
 <script>
-// 所有 API 请求使用相对路径（同域代理）
-let currentPath = "";
-let currentFilesList = [];
-let currentEditKey = "";
-let currentRenameKey = "";
-let currentBucketId = "";
-let bucketsConfig = [];
-let editingBucketIndex = -1;
-let editingTempBucket = null;
-let bucketSizes = {};
-let currentView = 'list';
-let selectedKeys = new Set(); // 存储选中的 key（文件或文件夹的完整路径）
+// ============================================================
+// 1. 国际化配置（自动检测浏览器语言）
+// ============================================================
+var i18n = {
+  zh: {
+    appTitle: '☁️ OneBucket',
+    bucketSelectNone: '-- 请选择桶 --',
+    manageBuckets: '⚙️ 管理桶',
+    uploadBtn: '批量上传',
+    exportBtn: '导出全部链接',
+    logoutBtn: '退出',
+    statusReady: '就绪',
+    headerName: '名称',
+    headerSize: '大小',
+    headerTime: '修改时间',
+    headerAction: '操作',
+    preview: '预览',
+    download: '下载',
+    copyLink: '复制链接',
+    edit: '编辑',
+    rename: '重命名',
+    delete: '删除',
+    newFolderBtnTitle: '新建文件夹',
+    refreshBtnTitle: '刷新',
+    batchDelBtnTitle: '删除选中项',
+    emptyFolder: '📭 当前目录为空',
+    loading: '加载中...',
+    rootPath: '🏠 根目录',
+    loginTitle: '登录',
+    loginPlaceholder: '输入访问密码',
+    loginBtn: '登 录',
+    initPwdBtn: '初始化密码',
+    initPwdTitle: '初始化密码',
+    initPwdPlaceholder: '设置新密码（至少6位）',
+    initPwdBtnText: '设置密码',
+    loginTipEmpty: '请输入密码',
+    loginTipInit: '请先初始化密码',
+    loginTipFailed: '登录失败',
+    loginTipConnFailed: '连接失败，请检查网络',
+    initSuccess: '✅ 密码已设置，请登录',
+    loginSuccess: '登录成功',
+    passwordSetSuccess: '密码设置成功，请使用新密码登录',
+    toastCopySuccess: '✅ 已复制链接：{0}',
+    toastCopyFail: '❌ 复制失败，可手动复制',
+    toastNoPublicDomain: '该桶未配置公共域名，无法复制链接',
+    toastDownloadInvalid: '下载地址无效',
+    toastDownloadWait: '请等待浏览器唤起下载',
+    toastUploadSuccess: '上传完成，成功 {0} 个',
+    toastDeleteSuccess: '✅ 删除成功',
+    toastDeleteFail: '删除失败：{0}',
+    toastBatchDeleteSuccess: '✅ 成功删除 {0} 项',
+    toastBatchDeleteFail: '批量删除失败：{0}',
+    toastRenameSuccess: '✅ 重命名成功',
+    toastRenameFail: '重命名失败：{0}',
+    toastSaveSuccess: '✅ 保存成功',
+    toastSaveFail: '保存失败：{0}',
+    toastReadFail: '读取文件失败：{0}',
+    toastNoFile: '请选择文件',
+    toastFolderNameRequired: '请输入文件夹名称',
+    toastCreateFolderFail: '创建失败：{0}',
+    toastBucketRequired: '请先选择一个桶',
+    toastNoBuckets: '请先添加桶配置',
+    toastLoadBucketsFail: '加载桶列表失败：{0}',
+    toastSaveBucketSuccess: '✅ 桶配置已保存',
+    toastSaveBucketFail: '保存失败：{0}',
+    toastDeleteBucketConfirm: '确定删除该桶配置吗？',
+    toastSetDefaultSuccess: '✅ 已将“{0}”设为默认桶',
+    toastSetDefaultFail: '设置失败：{0}',
+    toastFieldRequired: '请填写必填字段：ID、名称、Endpoint、Access Key ID',
+    toastPwdMinLength: '密码至少6位',
+    toastPwdChangeSuccess: '✅ {0}',
+    toastPwdChangeFail: '修改失败：{0}',
+    toastHistoryDeleteSuccess: '✅ 已删除',
+    toastHistoryDeleteFail: '删除失败：{0}',
+    toastUACopySuccess: '✅ UA已复制',
+    toastUACopyFail: '❌ 复制失败',
+    toastNoFilesExport: '当前目录无文件，无法导出',
+    toastExportSuccess: '📋 已复制 {0} 个文件的链接到剪贴板',
+    toastExportFail: '复制失败，可手动选择',
+    toastRenameNewNameRequired: '请输入新名称',
+    toastRenameSlashNotAllowed: '名称不能包含 /',
+    toastDeleteItemConfirm: '确认删除 {0}？\n删除后不可恢复',
+    toastBatchDeleteConfirm: '确认删除以下 {0} 项？\n{1}\n\n删除后不可恢复',
+    toastOldPwdRequired: '请输入旧密码',
+    toastNewPwdMinLength: '新密码至少6位',
+    oldPwdPlaceholder: '旧密码',
+    newPwdPlaceholder: '新密码（至少6位）',
+    confirmOldPwd: '确认修改',
+    accountViewTitle: '🔐 账户管理',
+    changePwdTitle: '修改密码',
+    loginHistoryTitle: '已登录设备',
+    historyHeaderTime: '登录时间',
+    historyHeaderIP: 'IP',
+    historyHeaderUA: 'User-Agent',
+    historyHeaderAction: '操作',
+    historyActionDelete: '删除',
+    historyNoRecords: '暂无登录记录',
+    historyLoading: '加载中...',
+    historyLoadFail: '加载失败',
+    historyDeleteConfirm: '确定删除该登录设备？对应设备将被强制下线。',
+    bucketListTitle: '📦 桶列表',
+    bucketEditTitle: '✏️ 编辑桶配置',
+    bucketAddTitle: '✏️ 添加桶',
+    bucketDefaultTooltip: '当前默认桶',
+    bucketSetDefaultTooltip: '设为默认桶',
+    bucketNameLabel: '显示名称',
+    bucketIdLabel: '桶ID',
+    bucketEndpointLabel: 'Endpoint',
+    bucketAccessKeyIdLabel: 'Access Key ID',
+    bucketSecretKeyLabel: 'Secret Access Key',
+    bucketPublicDomainLabel: '公共域名（可选）',
+    bucketUsageSettingsLabel: '用量统计设置（可选，需 Cloudflare API Token）',
+    bucketAccountIdLabel: 'Account ID',
+    bucketApiTokenLabel: 'API Token',
+    bucketTokenHint: 'Token 需拥有 Cloudflare R2 读取权限',
+    bucketConfigSecretPlaceholder: '留空则不修改',
+    bucketConfigAlreadyConfigured: '(已配置)',
+    bucketUsageFetching: '📁 获取中...',
+    bucketNoName: '未命名',
+    bucketNoId: '无ID',
+    bucketNoConfig: '无桶配置',
+    bucketAddCard: '+',
+    bucketSaveConfig: '保存配置',
+    bucketBack: '返回',
+    bucketClose: '关闭',
+    bucketAccountMgmt: '🔐 账户管理',
+    editorTitle: '编辑文件：',
+    editorRenameTooltip: '点击重命名',
+    editorCancel: '取消',
+    editorSave: '保存',
+    renameTitle: '重命名',
+    renameCurrentName: '当前名称：',
+    renameInputPlaceholder: '输入新名称',
+    renameCancel: '取消',
+    renameConfirm: '确定',
+    newFolderTitle: '新建文件夹',
+    newFolderInputPlaceholder: '输入文件夹名称',
+    newFolderCancel: '取消',
+    newFolderConfirm: '确定',
+    statusFolderCount: '📁 {0} · 📄 {1}',
+    statusUploading: '上传中：已完成 {0} / {1}，失败 {2}',
+    statusUploadDone: '✅ 上传完成：成功 {0} 个，失败 {1} 个',
+    pathRoot: '🏠 根目录',
 
-// ---------- 工具函数 ----------
+    // 后端消息翻译（中文原文 → 翻译 key）
+    msgFolderCreated: '文件夹创建成功',
+    msgDeleted: '删除成功',
+    msgRenamed: '重命名成功',
+    msgConfigUpdated: '配置已更新',
+    msgSessionDeleted: '已删除该登录会话',
+    msgSaved: '保存成功',
+    msgLoginSuccess: '登录成功',
+    msgPwdChanged: '密码已修改，已注销 {0} 个会话',
+    errMissingBucketId: '缺少 bucketId 参数',
+    errFileNotFound: '文件不存在',
+    errContentTooLarge: '内容过大，无法保存',
+    errFileTooLarge: '文件过大，无法在线编辑',
+    errTargetExists: '目标名称已存在',
+    errSourceNotFound: '原文件不存在',
+    errBucketNotFound: '桶配置不存在',
+    errUsageFailed: '获取用量失败，请检查 API Token 权限',
+    errNoFile: '无文件',
+    errMissingPath: '缺少路径',
+    errMissingKeys: '缺少 keys 数组',
+    errMissingParams: '缺少参数',
+    errSlashNotAllowed: '新名称不能包含 /',
+    errTooManyFiles: '文件夹内文件过多，暂不支持重命名',
+    errWrongPassword: '密码错误',
+    errTokenInvalid: 'token 无效或已过期',
+    errUnauthorized: '未授权',
+    errConfigIncomplete: '配置不完整',
+    errRecordNotFound: '记录不存在',
+    errRateLimited: '尝试次数过多，请稍后再试',
+    errPwdNotSet: '管理员密码尚未设置，请通过修改密码接口初始化',
+    errPwdEmpty: '请输入密码',
+    errOldPwdWrong: '旧密码错误',
+    errPwdTooShort: '新密码长度至少6位',
+    errOldPwdRequired: '请输入旧密码',
+    errOperationFailed: '操作失败，状态码 {0}'
+  },
+  en: {
+    appTitle: '☁️ OneBucket',
+    bucketSelectNone: '-- Select Bucket --',
+    manageBuckets: '⚙️ Manage Buckets',
+    uploadBtn: 'Upload',
+    exportBtn: 'Export All Links',
+    logoutBtn: 'Logout',
+    statusReady: 'Ready',
+    headerName: 'Name',
+    headerSize: 'Size',
+    headerTime: 'Modified',
+    headerAction: 'Actions',
+    preview: 'Preview',
+    download: 'Download',
+    copyLink: 'Copy Link',
+    edit: 'Edit',
+    rename: 'Rename',
+    delete: 'Delete',
+    newFolderBtnTitle: 'New Folder',
+    refreshBtnTitle: 'Refresh',
+    batchDelBtnTitle: 'Delete Selected',
+    emptyFolder: '📭 This folder is empty',
+    loading: 'Loading...',
+    rootPath: '🏠 Root',
+    loginTitle: 'Login',
+    loginPlaceholder: 'Enter access password',
+    loginBtn: 'Login',
+    initPwdBtn: 'Initialize Password',
+    initPwdTitle: 'Initialize Password',
+    initPwdPlaceholder: 'Set new password (min 6 chars)',
+    initPwdBtnText: 'Set Password',
+    loginTipEmpty: 'Please enter password',
+    loginTipInit: 'Please initialize password first',
+    loginTipFailed: 'Login failed',
+    loginTipConnFailed: 'Connection failed, check network',
+    initSuccess: '✅ Password set, please login',
+    loginSuccess: 'Login success',
+    passwordSetSuccess: 'Password set successfully, login with new password',
+    toastCopySuccess: '✅ Link copied: {0}',
+    toastCopyFail: '❌ Copy failed, try manually',
+    toastNoPublicDomain: 'No public domain configured for this bucket, cannot copy link',
+    toastDownloadInvalid: 'Invalid download URL',
+    toastDownloadWait: 'Please wait for browser download',
+    toastUploadSuccess: 'Upload completed, {0} succeeded',
+    toastDeleteSuccess: '✅ Deleted successfully',
+    toastDeleteFail: 'Delete failed: {0}',
+    toastBatchDeleteSuccess: '✅ Successfully deleted {0} items',
+    toastBatchDeleteFail: 'Batch delete failed: {0}',
+    toastRenameSuccess: '✅ Renamed successfully',
+    toastRenameFail: 'Rename failed: {0}',
+    toastSaveSuccess: '✅ Saved successfully',
+    toastSaveFail: 'Save failed: {0}',
+    toastReadFail: 'Read file failed: {0}',
+    toastNoFile: 'Please select a file',
+    toastFolderNameRequired: 'Please enter folder name',
+    toastCreateFolderFail: 'Create failed: {0}',
+    toastBucketRequired: 'Please select a bucket first',
+    toastNoBuckets: 'Please add bucket configuration first',
+    toastLoadBucketsFail: 'Load bucket list failed: {0}',
+    toastSaveBucketSuccess: '✅ Bucket configuration saved',
+    toastSaveBucketFail: 'Save failed: {0}',
+    toastDeleteBucketConfirm: 'Are you sure to delete this bucket configuration?',
+    toastSetDefaultSuccess: '✅ Set "{0}" as default bucket',
+    toastSetDefaultFail: 'Set default failed: {0}',
+    toastFieldRequired: 'Please fill required fields: ID, Name, Endpoint, Access Key ID',
+    toastPwdMinLength: 'Password must be at least 6 characters',
+    toastPwdChangeSuccess: '✅ {0}',
+    toastPwdChangeFail: 'Change failed: {0}',
+    toastHistoryDeleteSuccess: '✅ Deleted',
+    toastHistoryDeleteFail: 'Delete failed: {0}',
+    toastUACopySuccess: '✅ UA copied',
+    toastUACopyFail: '❌ Copy failed',
+    toastNoFilesExport: 'No files in current directory, cannot export',
+    toastExportSuccess: '📋 Copied links of {0} files to clipboard',
+    toastExportFail: 'Copy failed, try manually',
+    toastRenameNewNameRequired: 'Please enter new name',
+    toastRenameSlashNotAllowed: 'Name cannot contain /',
+    toastDeleteItemConfirm: 'Confirm delete {0}?\nThis cannot be undone',
+    toastBatchDeleteConfirm: 'Confirm delete following {0} items?\n{1}\n\nThis cannot be undone',
+    toastOldPwdRequired: 'Please enter old password',
+    toastNewPwdMinLength: 'New password at least 6 chars',
+    oldPwdPlaceholder: 'Old password',
+    newPwdPlaceholder: 'New password (min 6 chars)',
+    confirmOldPwd: 'Confirm Change',
+    accountViewTitle: '🔐 Account Management',
+    changePwdTitle: 'Change Password',
+    loginHistoryTitle: 'Logged-in Devices',
+    historyHeaderTime: 'Login Time',
+    historyHeaderIP: 'IP',
+    historyHeaderUA: 'User-Agent',
+    historyHeaderAction: 'Action',
+    historyActionDelete: 'Delete',
+    historyNoRecords: 'No login records',
+    historyLoading: 'Loading...',
+    historyLoadFail: 'Load failed',
+    historyDeleteConfirm: 'Are you sure to delete this device? It will be forced offline.',
+    bucketListTitle: '📦 Bucket List',
+    bucketEditTitle: '✏️ Edit Bucket Configuration',
+    bucketAddTitle: '✏️ Add Bucket',
+    bucketDefaultTooltip: 'Current default bucket',
+    bucketSetDefaultTooltip: 'Set as default bucket',
+    bucketNameLabel: 'Display Name',
+    bucketIdLabel: 'Bucket ID',
+    bucketEndpointLabel: 'Endpoint',
+    bucketAccessKeyIdLabel: 'Access Key ID',
+    bucketSecretKeyLabel: 'Secret Access Key',
+    bucketPublicDomainLabel: 'Public Domain (optional)',
+    bucketUsageSettingsLabel: 'Usage Statistics Settings (optional, requires Cloudflare API Token)',
+    bucketAccountIdLabel: 'Account ID',
+    bucketApiTokenLabel: 'API Token',
+    bucketTokenHint: 'Token needs Cloudflare R2 read permission',
+    bucketConfigSecretPlaceholder: 'Leave blank to keep unchanged',
+    bucketConfigAlreadyConfigured: '(configured)',
+    bucketUsageFetching: '📁 Fetching...',
+    bucketNoName: 'Unnamed',
+    bucketNoId: 'No ID',
+    bucketNoConfig: 'No bucket configuration',
+    bucketAddCard: '+',
+    bucketSaveConfig: 'Save Configuration',
+    bucketBack: 'Back',
+    bucketClose: 'Close',
+    bucketAccountMgmt: '🔐 Account Management',
+    editorTitle: 'Edit File: ',
+    editorRenameTooltip: 'Click to rename',
+    editorCancel: 'Cancel',
+    editorSave: 'Save',
+    renameTitle: 'Rename',
+    renameCurrentName: 'Current name: ',
+    renameInputPlaceholder: 'Enter new name',
+    renameCancel: 'Cancel',
+    renameConfirm: 'Confirm',
+    newFolderTitle: 'New Folder',
+    newFolderInputPlaceholder: 'Enter folder name',
+    newFolderCancel: 'Cancel',
+    newFolderConfirm: 'Confirm',
+    statusFolderCount: '📁 {0} · 📄 {1}',
+    statusUploading: 'Uploading: completed {0} / {1}, failed {2}',
+    statusUploadDone: '✅ Upload completed: {0} succeeded, {1} failed',
+    pathRoot: '🏠 Root',
+
+    msgFolderCreated: 'Folder created successfully',
+    msgDeleted: 'Deleted successfully',
+    msgRenamed: 'Renamed successfully',
+    msgConfigUpdated: 'Configuration updated',
+    msgSessionDeleted: 'Login session deleted',
+    msgSaved: 'Saved successfully',
+    msgLoginSuccess: 'Login success',
+    msgPwdChanged: 'Password changed, {0} sessions revoked',
+    errMissingBucketId: 'Missing bucketId parameter',
+    errFileNotFound: 'File not found',
+    errContentTooLarge: 'Content too large to save',
+    errFileTooLarge: 'File too large to edit online',
+    errTargetExists: 'Target name already exists',
+    errSourceNotFound: 'Source file not found',
+    errBucketNotFound: 'Bucket configuration not found',
+    errUsageFailed: 'Failed to get usage, check API Token permissions',
+    errNoFile: 'No file',
+    errMissingPath: 'Missing path',
+    errMissingKeys: 'Missing keys array',
+    errMissingParams: 'Missing parameters',
+    errSlashNotAllowed: 'New name cannot contain /',
+    errTooManyFiles: 'Too many files in folder, rename not supported',
+    errWrongPassword: 'Wrong password',
+    errTokenInvalid: 'Invalid or expired token',
+    errUnauthorized: 'Unauthorized',
+    errConfigIncomplete: 'Incomplete configuration',
+    errRecordNotFound: 'Record not found',
+    errRateLimited: 'Too many attempts, please try later',
+    errPwdNotSet: 'Admin password not set, please initialize via change password',
+    errPwdEmpty: 'Please enter password',
+    errOldPwdWrong: 'Old password is wrong',
+    errPwdTooShort: 'New password must be at least 6 characters',
+    errOldPwdRequired: 'Please enter old password',
+    errOperationFailed: 'Operation failed, status {0}'
+  }
+};
+
+// 检测语言
+var lang = (function() {
+  var navLang = navigator.language || navigator.userLanguage || 'en';
+  return navLang.indexOf('zh') === 0 ? 'zh' : 'en';
+})();
+
+// 翻译函数
+function t(key) {
+  var str = i18n[lang][key];
+  if (!str) return key;
+  var args = Array.prototype.slice.call(arguments, 1);
+  for (var i = 0; i < args.length; i++) {
+    str = str.replace(new RegExp('\\{' + i + '\\}', 'g'), args[i]);
+  }
+  return str;
+}
+
+// 后端消息翻译映射（中文原文 → 翻译 key）
+var backendMsgMap = {
+  '文件夹创建成功': 'msgFolderCreated',
+  '删除成功': 'msgDeleted',
+  '重命名成功': 'msgRenamed',
+  '配置已更新': 'msgConfigUpdated',
+  '已删除该登录会话': 'msgSessionDeleted',
+  '保存成功': 'msgSaved',
+  '登录成功': 'msgLoginSuccess',
+  '密码已修改，已注销 {0} 个会话': 'msgPwdChanged',
+  '缺少 bucketId 参数': 'errMissingBucketId',
+  '文件不存在': 'errFileNotFound',
+  '内容过大，无法保存': 'errContentTooLarge',
+  '文件过大，无法在线编辑': 'errFileTooLarge',
+  '目标名称已存在': 'errTargetExists',
+  '原文件不存在': 'errSourceNotFound',
+  '桶配置不存在': 'errBucketNotFound',
+  '获取用量失败，请检查 API Token 权限': 'errUsageFailed',
+  '无文件': 'errNoFile',
+  '缺少路径': 'errMissingPath',
+  '缺少 keys 数组': 'errMissingKeys',
+  '缺少参数': 'errMissingParams',
+  '新名称不能包含 /': 'errSlashNotAllowed',
+  '文件夹内文件过多，暂不支持重命名': 'errTooManyFiles',
+  '密码错误': 'errWrongPassword',
+  'token 无效或已过期': 'errTokenInvalid',
+  '未授权': 'errUnauthorized',
+  '配置不完整': 'errConfigIncomplete',
+  '记录不存在': 'errRecordNotFound',
+  '尝试次数过多，请稍后再试': 'errRateLimited',
+  '管理员密码尚未设置，请通过修改密码接口初始化': 'errPwdNotSet',
+  '请输入密码': 'errPwdEmpty',
+  '旧密码错误': 'errOldPwdWrong',
+  '新密码长度至少6位': 'errPwdTooShort',
+  '请输入旧密码': 'errOldPwdRequired'
+};
+
+function translateBackendMsg(originalMsg) {
+  if (!originalMsg) return '';
+  if (backendMsgMap[originalMsg]) {
+    return t(backendMsgMap[originalMsg]);
+  }
+  // 包含匹配（处理带占位符的，如 "密码已修改，已注销 5 个会话"）
+  for (var cnKey in backendMsgMap) {
+    if (originalMsg.indexOf(cnKey) !== -1) {
+      // 尝试提取占位符（如数字）
+      var value = t(backendMsgMap[cnKey]);
+      // 如果原消息包含 {0}，则尝试提取数字
+      if (value.indexOf('{0}') !== -1) {
+        var match = originalMsg.match(/\d+/);
+        if (match) {
+          return t(backendMsgMap[cnKey], match[0]);
+        }
+      }
+      return value;
+    }
+  }
+  return originalMsg;
+}
+
+// 应用静态翻译
+function applyTranslations() {
+  var dict = i18n[lang];
+  document.querySelectorAll('[data-i18n]').forEach(function(el) {
+    var key = el.getAttribute('data-i18n');
+    if (dict[key] !== undefined) {
+      el.textContent = dict[key];
+    }
+  });
+  document.querySelectorAll('[data-i18n-placeholder]').forEach(function(el) {
+    var key = el.getAttribute('data-i18n-placeholder');
+    if (dict[key] !== undefined) {
+      el.placeholder = dict[key];
+    }
+  });
+  document.querySelectorAll('[data-i18n-title]').forEach(function(el) {
+    var key = el.getAttribute('data-i18n-title');
+    if (dict[key] !== undefined) {
+      el.title = dict[key];
+    }
+  });
+}
+
+// ============================================================
+// 2. 原有业务逻辑（全部替换为翻译版本）
+// ============================================================
+var currentPath = "";
+var currentFilesList = [];
+var currentEditKey = "";
+var currentRenameKey = "";
+var currentBucketId = "";
+var bucketsConfig = [];
+var editingBucketIndex = -1;
+var editingTempBucket = null;
+var bucketSizes = {};
+var currentView = 'list';
+var selectedKeys = new Set();
+
 function showToast(msg) {
-  const toast = document.getElementById("toast");
+  var toast = document.getElementById("toast");
   toast.innerText = msg;
   toast.style.opacity = "1";
-  setTimeout(() => { toast.style.opacity = "0"; }, 2000);
+  setTimeout(function() { toast.style.opacity = "0"; }, 2000);
 }
 
 function formatSize(b) {
@@ -708,22 +1166,23 @@ function escapeHtml(str) {
 }
 
 function renderBread(path) {
-  const box = document.getElementById("pathHtml");
-  let html = `<a onclick="getFileList('')">🏠 根目录</a>`;
+  var box = document.getElementById("pathHtml");
+  var html = '<a onclick="getFileList(\'\')">' + t('rootPath') + '</a>';
   if (path === "") { box.innerHTML = html; return; }
-  let arr = [];
-  let temp = "";
-  path.split("/").filter(s => s).forEach(name => {
+  var arr = [];
+  var temp = "";
+  path.split("/").filter(function(s) { return s; }).forEach(function(name) {
     temp += name + "/";
-    arr.push({ name, full: temp });
+    arr.push({ name: name, full: temp });
   });
-  arr.forEach(item => {
-    html += ` / <a onclick="getFileList('${item.full}')">${escapeHtml(item.name)}</a>`;
+  arr.forEach(function(item) {
+    html += ' / <a onclick="getFileList(\'' + item.full + '\')">' + escapeHtml(item.name) + '</a>';
   });
   box.innerHTML = html;
 }
 
-function fetchWithCreds(url, options = {}) {
+function fetchWithCreds(url, options) {
+  options = options || {};
   return fetch(url, {
     ...options,
     credentials: 'include',
@@ -734,16 +1193,16 @@ function fetchWithCreds(url, options = {}) {
   });
 }
 
-// ---------- 获取所有桶的大小（异步） ----------
+// ---------- 桶相关 ----------
 async function fetchAllBucketUsages() {
-  const promises = bucketsConfig.map(async (b) => {
+  var promises = bucketsConfig.map(async function(b) {
     if (!b.accountId || !b.hasToken) {
       bucketSizes[b.id] = null;
       return;
     }
     try {
-      const res = await fetchWithCreds(`/usage?bucketId=${b.id}`);
-      const json = await res.json();
+      var res = await fetchWithCreds('/usage?bucketId=' + b.id);
+      var json = await res.json();
       if (json.code === 200 && json.size != null) {
         bucketSizes[b.id] = json.size;
       } else {
@@ -760,26 +1219,25 @@ async function fetchAllBucketUsages() {
 }
 
 function getBucketDisplayName(bucketId, bucketName) {
-  let name = bucketName || bucketId;
-  const size = bucketSizes[bucketId];
+  var name = bucketName || bucketId;
+  var size = bucketSizes[bucketId];
   if (size != null && size !== undefined) {
-    name += ` (${formatSize(size)})`;
+    name += ' (' + formatSize(size) + ')';
   }
   return name;
 }
 
 function updateBucketSelectLabel() {
-  const conf = bucketsConfig.find(b => b.id === currentBucketId);
+  var conf = bucketsConfig.find(function(b) { return b.id === currentBucketId; });
   if (conf) {
     document.getElementById('bucketSelectLabel').innerText = getBucketDisplayName(conf.id, conf.name);
   } else {
-    document.getElementById('bucketSelectLabel').innerText = '-- 请选择桶 --';
+    document.getElementById('bucketSelectLabel').innerText = t('bucketSelectNone');
   }
 }
 
-// ---------- 自定义桶下拉逻辑 ----------
 function toggleBucketDropdown() {
-  const container = document.getElementById('bucketSelectContainer');
+  var container = document.getElementById('bucketSelectContainer');
   container.classList.toggle('open');
 }
 
@@ -787,100 +1245,101 @@ function selectBucket(id) {
   currentBucketId = id;
   updateBucketSelectLabel();
   document.getElementById('bucketSelectContainer').classList.remove('open');
-  document.querySelectorAll('.custom-select-option').forEach(opt => {
+  document.querySelectorAll('.custom-select-option').forEach(function(opt) {
     opt.classList.toggle('selected', opt.dataset.value === id);
   });
   getFileList();
 }
 
 function renderBucketOptions() {
-  const optionsContainer = document.getElementById('bucketOptions');
+  var optionsContainer = document.getElementById('bucketOptions');
   optionsContainer.innerHTML = '';
   if (bucketsConfig.length === 0) {
-    optionsContainer.innerHTML = '<div class="custom-select-option" style="cursor:default; color:var(--text-muted);">无桶配置</div>';
+    optionsContainer.innerHTML = '<div class="custom-select-option" style="cursor:default; color:var(--text-muted);">' + t('bucketNoConfig') + '</div>';
     return;
   }
-  bucketsConfig.forEach(b => {
-    const opt = document.createElement('div');
+  bucketsConfig.forEach(function(b) {
+    var opt = document.createElement('div');
     opt.className = 'custom-select-option' + (b.id === currentBucketId ? ' selected' : '');
     opt.dataset.value = b.id;
     opt.innerText = getBucketDisplayName(b.id, b.name);
-    opt.onclick = () => selectBucket(b.id);
+    opt.onclick = function() { selectBucket(b.id); };
     optionsContainer.appendChild(opt);
   });
 }
 
 document.addEventListener('click', function(event) {
-  const container = document.getElementById('bucketSelectContainer');
+  var container = document.getElementById('bucketSelectContainer');
   if (container && !container.contains(event.target)) {
     container.classList.remove('open');
   }
 });
 
-// ---------- 登录/登出/初始化密码 ----------
+// ---------- 登录/登出 ----------
 async function login() {
-  const pwd = document.getElementById('pwdInput').value;
-  const tipDom = document.getElementById('loginTip');
-  if (!pwd) { tipDom.innerText = "请输入密码"; return; }
+  var pwd = document.getElementById('pwdInput').value;
+  var tipDom = document.getElementById('loginTip');
+  if (!pwd) { tipDom.innerText = t('loginTipEmpty'); return; }
   try {
-    const res = await fetchWithCreds('/login', {
+    var res = await fetchWithCreds('/login', {
       method: 'POST',
-      body: JSON.stringify({ pwd })
+      body: JSON.stringify({ pwd: pwd })
     });
-    const json = await res.json();
+    var json = await res.json();
     if (json.code === 200) {
       document.getElementById('loginBox').style.display = 'none';
-      const mainBox = document.getElementById('mainBox');
+      var mainBox = document.getElementById('mainBox');
       mainBox.style.display = 'block';
       void mainBox.offsetWidth;
       mainBox.classList.add('visible');
       await loadBuckets();
+      showToast(t('loginSuccess'));
     } else if (json.code === 503) {
       document.getElementById('initPwdBtn').style.display = 'block';
-      tipDom.innerText = json.msg || '请先初始化密码';
+      tipDom.innerText = translateBackendMsg(json.msg) || t('loginTipInit');
     } else {
-      tipDom.innerText = json.msg || '登录失败';
+      tipDom.innerText = translateBackendMsg(json.msg) || t('loginTipFailed');
     }
   } catch (e) {
-    tipDom.innerText = '连接失败，请检查网络';
+    tipDom.innerText = t('loginTipConnFailed');
     console.error(e);
   }
 }
 
 function showInitPwd() {
-  document.getElementById('loginTitle').innerText = '初始化密码';
-  document.getElementById('pwdInput').placeholder = '设置新密码（至少6位）';
-  document.getElementById('loginBtn').innerText = '设置密码';
+  document.getElementById('loginTitle').innerText = t('initPwdTitle');
+  document.getElementById('pwdInput').placeholder = t('initPwdPlaceholder');
+  document.getElementById('loginBtn').innerText = t('initPwdBtnText');
   document.getElementById('loginBtn').onclick = initPassword;
   document.getElementById('initPwdBtn').style.display = 'none';
   document.getElementById('loginTip').innerText = '';
 }
 
 async function initPassword() {
-  const newPwd = document.getElementById('pwdInput').value;
+  var newPwd = document.getElementById('pwdInput').value;
   if (!newPwd || newPwd.length < 6) {
-    document.getElementById('loginTip').innerText = '密码至少6位';
+    document.getElementById('loginTip').innerText = t('toastPwdMinLength');
     return;
   }
   try {
-    const res = await fetchWithCreds('/admin/change-password', {
+    var res = await fetchWithCreds('/admin/change-password', {
       method: 'POST',
-      body: JSON.stringify({ newPwd })
+      body: JSON.stringify({ newPwd: newPwd })
     });
-    const json = await res.json();
+    var json = await res.json();
     if (json.code === 200) {
-      showToast('✅ 密码已设置，请登录');
-      document.getElementById('loginTitle').innerText = '登录';
-      document.getElementById('pwdInput').placeholder = '输入访问密码';
-      document.getElementById('loginBtn').innerText = '登 录';
+      showToast(t('initSuccess'));
+      document.getElementById('loginTitle').innerText = t('loginTitle');
+      document.getElementById('pwdInput').placeholder = t('loginPlaceholder');
+      document.getElementById('loginBtn').innerText = t('loginBtn');
       document.getElementById('loginBtn').onclick = login;
       document.getElementById('pwdInput').value = '';
-      document.getElementById('loginTip').innerText = '密码设置成功，请使用新密码登录';
+      document.getElementById('loginTip').innerText = t('passwordSetSuccess');
     } else {
-      document.getElementById('loginTip').innerText = '设置失败：' + json.msg;
+      document.getElementById('loginTip').innerText = t('toastPwdChangeFail', translateBackendMsg(json.msg));
     }
   } catch (e) {
-    document.getElementById('loginTip').innerText = '设置失败：' + e.message;
+    document.getElementById('loginTip').innerText = t('toastPwdChangeFail', e.message);
   }
 }
 
@@ -892,33 +1351,32 @@ async function logout() {
 // ---------- 桶管理 ----------
 async function loadBuckets() {
   try {
-    const res = await fetchWithCreds('/admin/buckets');
-    const json = await res.json();
+    var res = await fetchWithCreds('/admin/buckets');
+    var json = await res.json();
     if (json.code === 200) {
       bucketsConfig = json.data;
       bucketSizes = {};
       renderBucketOptions();
-      // 优先选择默认桶
-      const defaultBucket = bucketsConfig.find(b => b.isDefault === true);
+      var defaultBucket = bucketsConfig.find(function(b) { return b.isDefault === true; });
       currentBucketId = defaultBucket ? defaultBucket.id : (bucketsConfig.length > 0 ? bucketsConfig[0].id : '');
       if (currentBucketId) {
         updateBucketSelectLabel();
-        document.querySelectorAll('.custom-select-option').forEach(opt => {
+        document.querySelectorAll('.custom-select-option').forEach(function(opt) {
           opt.classList.toggle('selected', opt.dataset.value === currentBucketId);
         });
         getFileList();
       } else {
-        document.getElementById('fileList').innerHTML = '<tr><td colspan="4">请先添加桶配置</td></tr>';
-        document.getElementById('bucketSelectLabel').innerText = '-- 请选择桶 --';
+        document.getElementById('fileList').innerHTML = '<tr><td colspan="4">' + t('toastNoBuckets') + '</td></tr>';
+        document.getElementById('bucketSelectLabel').innerText = t('bucketSelectNone');
       }
       fetchAllBucketUsages();
     }
   } catch (e) {
-    showToast('加载桶列表失败：' + e.message);
+    showToast(t('toastLoadBucketsFail', e.message));
   }
 }
 
-// ---------- 桶管理弹窗（三级视图滑动） ----------
+// ---------- 桶管理弹窗 ----------
 function openBucketManager() {
   showBucketList(false);
   document.getElementById('bucketManagerModal').classList.add('active');
@@ -931,38 +1389,34 @@ function closeBucketManager() {
 }
 
 function getContainerHeight() {
-  const container = document.getElementById('bucketViewContainer');
+  var container = document.getElementById('bucketViewContainer');
   return container.offsetHeight;
 }
 function setContainerHeight(height) {
-  const container = document.getElementById('bucketViewContainer');
+  var container = document.getElementById('bucketViewContainer');
   container.style.height = height + 'px';
 }
 function resetContainerHeight() {
-  const container = document.getElementById('bucketViewContainer');
+  var container = document.getElementById('bucketViewContainer');
   container.style.height = 'auto';
 }
 
 function switchView(targetView) {
-  const container = document.getElementById('bucketViewContainer');
-  const views = {
+  var container = document.getElementById('bucketViewContainer');
+  var views = {
     list: document.getElementById('bucketListView'),
     detail: document.getElementById('bucketDetailView'),
     account: document.getElementById('accountView')
   };
-  const currentViewEl = views[currentView];
-  const targetViewEl = views[targetView];
-
+  var currentViewEl = views[currentView];
+  var targetViewEl = views[targetView];
   if (currentView === targetView) return;
-
-  const startHeight = getContainerHeight();
+  var startHeight = getContainerHeight();
   setContainerHeight(startHeight);
-
-  Object.values(views).forEach(v => {
+  Object.values(views).forEach(function(v) {
     v.classList.remove('active', 'inactive-left', 'inactive-right');
   });
-
-  const toList = targetView === 'list';
+  var toList = targetView === 'list';
   if (toList) {
     currentViewEl.classList.add('inactive-right');
     targetViewEl.classList.add('active');
@@ -970,11 +1424,9 @@ function switchView(targetView) {
     currentViewEl.classList.add('inactive-left');
     targetViewEl.classList.add('active');
   }
-
   void container.offsetWidth;
   resetContainerHeight();
-
-  setTimeout(() => {
+  setTimeout(function() {
     currentViewEl.classList.remove('inactive-left', 'inactive-right');
     currentViewEl.classList.add(toList ? 'inactive-right' : 'inactive-left');
     currentViewEl.classList.remove('active');
@@ -984,22 +1436,21 @@ function switchView(targetView) {
   }, 450);
 }
 
-function showBucketList(animate = true) {
+function showBucketList(animate) {
+  animate = (animate !== undefined) ? animate : true;
   if (editingBucketIndex === -1 && editingTempBucket) {
     editingTempBucket = null;
   }
   editingBucketIndex = -1;
   editingTempBucket = null;
-
-  document.getElementById('bucketManagerTitle').innerText = '📦 桶列表';
+  document.getElementById('bucketManagerTitle').innerText = t('bucketListTitle');
   renderBucketCardList();
-
   if (animate && currentView !== 'list') {
     switchView('list');
   } else {
-    const listView = document.getElementById('bucketListView');
-    const detailView = document.getElementById('bucketDetailView');
-    const accountView = document.getElementById('accountView');
+    var listView = document.getElementById('bucketListView');
+    var detailView = document.getElementById('bucketDetailView');
+    var accountView = document.getElementById('accountView');
     listView.classList.remove('inactive-left', 'inactive-right');
     listView.classList.add('active');
     detailView.classList.remove('active');
@@ -1014,13 +1465,13 @@ function showBucketList(animate = true) {
 function showBucketDetail(index) {
   editingBucketIndex = index;
   editingTempBucket = null;
-  document.getElementById('bucketManagerTitle').innerText = '✏️ 编辑桶配置';
+  document.getElementById('bucketManagerTitle').innerText = t('bucketEditTitle');
   renderBucketDetailForm(index);
   switchView('detail');
 }
 
 function showAccountView() {
-  document.getElementById('bucketManagerTitle').innerText = '🔐 账户管理';
+  document.getElementById('bucketManagerTitle').innerText = t('accountViewTitle');
   loadLoginHistory();
   switchView('account');
 }
@@ -1028,241 +1479,165 @@ function showAccountView() {
 function addBucketRow() {
   editingBucketIndex = -1;
   editingTempBucket = { id: '', name: '', accountId: '', endpoint: '', accessKeyId: '', secretAccessKey: '', apiToken: '', publicDomain: '', hasSecret: false, hasToken: false, isDefault: false };
-  document.getElementById('bucketManagerTitle').innerText = '✏️ 添加桶';
+  document.getElementById('bucketManagerTitle').innerText = t('bucketAddTitle');
   renderBucketDetailFormFromTemp();
   switchView('detail');
 }
 
-// 渲染桶卡片列表
 function renderBucketCardList() {
-  const container = document.getElementById('bucketCardList');
+  var container = document.getElementById('bucketCardList');
   container.innerHTML = '';
-  bucketsConfig.forEach((b, index) => {
-    const card = document.createElement('div');
+  bucketsConfig.forEach(function(b, index) {
+    var card = document.createElement('div');
     card.className = 'bucket-card';
-    card.addEventListener('click', (e) => {
+    card.addEventListener('click', function(e) {
       if (e.target.closest('.delete-icon') || e.target.closest('.set-default-btn')) return;
       showBucketDetail(index);
     });
-
-    let usageHtml = '';
-    const size = bucketSizes[b.id];
+    var usageHtml = '';
+    var size = bucketSizes[b.id];
     if (size != null && size !== undefined) {
-      usageHtml = `<div class="card-usage">📁 ${formatSize(size)}</div>`;
+      usageHtml = '<div class="card-usage">📁 ' + formatSize(size) + '</div>';
     } else if (b.accountId && b.hasToken) {
-      usageHtml = `<div class="card-usage">📁 获取中...</div>`;
+      usageHtml = '<div class="card-usage">' + t('bucketUsageFetching') + '</div>';
     } else {
-      usageHtml = `<div class="card-usage"></div>`;
+      usageHtml = '<div class="card-usage"></div>';
     }
-
-    const domainHtml = b.publicDomain ? `<div class="card-domain">🌐 ${escapeHtml(b.publicDomain)}</div>` : '';
-
-    // 统一使用实心星星 SVG，颜色通过 class 控制
-    const starSvg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="1em" height="1em"><path fill="currentColor" d="m18.7 4.627l2.247 4.31a2.27 2.27 0 0 0 1.686 1.189l4.746.65c2.538.35 3.522 3.479 1.645 5.219l-3.25 2.999a2.23 2.23 0 0 0-.683 2.04l.793 4.398c.441 2.45-2.108 4.36-4.345 3.24l-4.536-2.25a2.28 2.28 0 0 0-2.006 0l-4.536 2.25c-2.238 1.11-4.786-.79-4.345-3.24l.793-4.399c.14-.75-.12-1.52-.682-2.04l-3.251-2.998c-1.877-1.73-.893-4.87 1.645-5.22l4.746-.65a2.23 2.23 0 0 0 1.686-1.189l2.248-4.309c1.144-2.17 4.264-2.17 5.398 0"/></svg>`;
-
-    card.innerHTML = `
-      <div class="card-header">
-        <div>
-          <div class="card-title">${escapeHtml(b.name || '未命名')}</div>
-          <div class="card-bucket-name">${escapeHtml(b.id || '无ID')}</div>
-          ${domainHtml}
-        </div>
-        <button class="set-default-btn ${b.isDefault ? 'is-default' : ''}" onclick="event.stopPropagation(); setDefaultBucket('${b.id}')" title="${b.isDefault ? '当前默认桶' : '设为默认桶'}">
-          ${starSvg}
-        </button>
-      </div>
-      <div class="card-footer">
-        <button class="delete-icon" onclick="deleteBucketFromCard(${index})" title="删除桶">
-          <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="1em" height="1em"><g fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="4"><path stroke-linecap="round" d="M8 11h32M18 5h12"/><path fill="currentColor" d="M12 17h24v23a3 3 0 0 1-3 3H15a3 3 0 0 1-3-3z"/></g></svg>
-        </button>
-        <div style="text-align:right;">
-          ${usageHtml}
-        </div>
-      </div>
-    `;
+    var domainHtml = b.publicDomain ? '<div class="card-domain">🌐 ' + escapeHtml(b.publicDomain) + '</div>' : '';
+    var starSvg = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="1em" height="1em"><path fill="currentColor" d="m18.7 4.627l2.247 4.31a2.27 2.27 0 0 0 1.686 1.189l4.746.65c2.538.35 3.522 3.479 1.645 5.219l-3.25 2.999a2.23 2.23 0 0 0-.683 2.04l.793 4.398c.441 2.45-2.108 4.36-4.345 3.24l-4.536-2.25a2.28 2.28 0 0 0-2.006 0l-4.536 2.25c-2.238 1.11-4.786-.79-4.345-3.24l.793-4.399c.14-.75-.12-1.52-.682-2.04l-3.251-2.998c-1.877-1.73-.893-4.87 1.645-5.22l4.746-.65a2.23 2.23 0 0 0 1.686-1.189l2.248-4.309c1.144-2.17 4.264-2.17 5.398 0"/></svg>';
+    card.innerHTML = 
+      '<div class="card-header">' +
+        '<div>' +
+          '<div class="card-title">' + escapeHtml(b.name || t('bucketNoName')) + '</div>' +
+          '<div class="card-bucket-name">' + escapeHtml(b.id || t('bucketNoId')) + '</div>' +
+          domainHtml +
+        '</div>' +
+        '<button class="set-default-btn ' + (b.isDefault ? 'is-default' : '') + '" onclick="event.stopPropagation(); setDefaultBucket(\'' + b.id + '\')" title="' + (b.isDefault ? t('bucketDefaultTooltip') : t('bucketSetDefaultTooltip')) + '">' +
+          starSvg +
+        '</button>' +
+      '</div>' +
+      '<div class="card-footer">' +
+        '<button class="delete-icon" onclick="deleteBucketFromCard(' + index + ')" title="' + t('delete') + '">' +
+          '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="1em" height="1em"><g fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="4"><path stroke-linecap="round" d="M8 11h32M18 5h12"/><path fill="currentColor" d="M12 17h24v23a3 3 0 0 1-3 3H15a3 3 0 0 1-3-3z"/></g></svg>' +
+        '</button>' +
+        '<div style="text-align:right;">' + usageHtml + '</div>' +
+      '</div>';
     container.appendChild(card);
   });
-
-  // 添加“添加桶”卡片
-  const addCard = document.createElement('div');
+  var addCard = document.createElement('div');
   addCard.className = 'bucket-card add-bucket-card';
   addCard.onclick = addBucketRow;
-  addCard.innerHTML = '<span>+</span>';
+  addCard.innerHTML = '<span>' + t('bucketAddCard') + '</span>';
   container.appendChild(addCard);
 }
 
-// 设置默认桶
 async function setDefaultBucket(id) {
-  const targetBucket = bucketsConfig.find(b => b.id === id);
+  var targetBucket = bucketsConfig.find(function(b) { return b.id === id; });
   if (!targetBucket) return;
-  
-  bucketsConfig.forEach(b => b.isDefault = (b.id === id));
+  bucketsConfig.forEach(function(b) { b.isDefault = (b.id === id); });
   try {
-    const res = await fetchWithCreds('/admin/buckets', {
+    var res = await fetchWithCreds('/admin/buckets', {
       method: 'POST',
       body: JSON.stringify({ data: bucketsConfig })
     });
-    const json = await res.json();
+    var json = await res.json();
     if (json.code === 200) {
-      showToast(`✅ 已将“${targetBucket.name || id}”设为默认桶`);
+      showToast(t('toastSetDefaultSuccess', targetBucket.name || id));
       renderBucketCardList();
       renderBucketOptions();
     } else {
-      showToast('设置失败：' + json.msg);
+      showToast(t('toastSetDefaultFail', translateBackendMsg(json.msg)));
     }
   } catch (e) {
-    showToast('设置失败：' + e.message);
+    showToast(t('toastSetDefaultFail', e.message));
   }
 }
 
 function deleteBucketFromCard(index) {
   event.stopPropagation();
-  if (!confirm('确定删除该桶配置吗？')) return;
-  const deletedId = bucketsConfig[index].id;
-  const wasDefault = bucketsConfig[index].isDefault;
+  if (!confirm(t('toastDeleteBucketConfirm'))) return;
+  var deletedId = bucketsConfig[index].id;
+  var wasDefault = bucketsConfig[index].isDefault;
   bucketsConfig.splice(index, 1);
   if (currentBucketId === deletedId) {
     currentBucketId = '';
-    document.getElementById('bucketSelectLabel').innerText = '-- 请选择桶 --';
-    document.getElementById('fileList').innerHTML = '<tr><td colspan="4">请先添加桶配置</td></tr>';
+    document.getElementById('bucketSelectLabel').innerText = t('bucketSelectNone');
+    document.getElementById('fileList').innerHTML = '<tr><td colspan="4">' + t('toastNoBuckets') + '</td></tr>';
   }
   delete bucketSizes[deletedId];
-  
-  // 如果删除的是默认桶且还有其他桶，则自动将第一个桶设为默认（可选）
   if (wasDefault && bucketsConfig.length > 0) {
     bucketsConfig[0].isDefault = true;
   }
-  
   renderBucketCardList();
   renderBucketOptions();
   saveBucketsConfigToServer();
 }
 
-// 渲染桶详情表单（带字段标签）
 function renderBucketDetailForm(index) {
-  const container = document.getElementById('bucketConfigList');
+  var container = document.getElementById('bucketConfigList');
   container.innerHTML = '';
-  const b = bucketsConfig[index];
-  const div = document.createElement('div');
+  var b = bucketsConfig[index];
+  var div = document.createElement('div');
   div.style.cssText = 'border:1px solid var(--border-light); padding:12px; border-radius:12px; background:var(--bg-progress);';
-  div.innerHTML = `
-    <div class="bucket-config-grid">
-      <div class="form-field">
-        <label>桶ID</label>
-        <input value="${b.id || ''}" data-field="id" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
-      </div>
-      <div class="form-field">
-        <label>显示名称</label>
-        <input placeholder="显示名称" value="${b.name || ''}" data-field="name" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
-      </div>
-      <div class="form-field">
-        <label>Endpoint</label>
-        <input placeholder="Endpoint (如 https://acc.r2.cloudflarestorage.com)" value="${b.endpoint || ''}" data-field="endpoint" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
-      </div>
-      <div class="form-field">
-        <label>Access Key ID</label>
-        <input placeholder="Access Key ID" value="${b.accessKeyId || ''}" data-field="accessKeyId" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
-      </div>
-      <div class="form-field">
-        <label>Secret Access Key</label>
-        <div style="display:flex; gap:6px; align-items:center;">
-          <input placeholder="留空则不修改" type="password" data-field="secretAccessKey" style="flex:1; padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
-          ${b.hasSecret ? '<span style="font-size:0.7rem; color:var(--text-muted);">(已配置)</span>' : ''}
-        </div>
-      </div>
-      <div class="form-field">
-        <label>公共域名（可选）</label>
-        <input placeholder="公共域名" value="${b.publicDomain || ''}" data-field="publicDomain" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
-      </div>
-      <div style="grid-column: span 2; margin-top: 5px;">
-        <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:5px;">用量统计设置（可选，需 Cloudflare API Token）</div>
-        <div class="usage-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-          <div class="form-field">
-            <label>Account ID</label>
-            <input placeholder="Account ID" value="${b.accountId || ''}" data-field="accountId" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
-          </div>
-          <div class="form-field">
-            <label>API Token</label>
-            <div style="display:flex; gap:6px; align-items:center;">
-              <input placeholder="留空则不修改" type="password" data-field="apiToken" style="flex:1; padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
-              ${b.hasToken ? '<span style="font-size:0.7rem; color:var(--text-muted);">(已配置)</span>' : ''}
-            </div>
-          </div>
-        </div>
-        <small style="display:block; margin-top:4px; color:var(--text-muted);">Token 需拥有 Cloudflare R2 读取权限</small>
-      </div>
-    </div>
-  `;
+  div.innerHTML = 
+    '<div class="bucket-config-grid">' +
+      '<div class="form-field"><label>' + t('bucketIdLabel') + '</label><input value="' + (b.id || '') + '" data-field="id" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
+      '<div class="form-field"><label>' + t('bucketNameLabel') + '</label><input placeholder="' + t('bucketNameLabel') + '" value="' + (b.name || '') + '" data-field="name" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
+      '<div class="form-field"><label>' + t('bucketEndpointLabel') + '</label><input placeholder="Endpoint (如 https://acc.r2.cloudflarestorage.com)" value="' + (b.endpoint || '') + '" data-field="endpoint" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
+      '<div class="form-field"><label>' + t('bucketAccessKeyIdLabel') + '</label><input placeholder="' + t('bucketAccessKeyIdLabel') + '" value="' + (b.accessKeyId || '') + '" data-field="accessKeyId" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
+      '<div class="form-field"><label>' + t('bucketSecretKeyLabel') + '</label><div style="display:flex; gap:6px; align-items:center;"><input placeholder="' + t('bucketConfigSecretPlaceholder') + '" type="password" data-field="secretAccessKey" style="flex:1; padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">' + (b.hasSecret ? '<span style="font-size:0.7rem; color:var(--text-muted);">' + t('bucketConfigAlreadyConfigured') + '</span>' : '') + '</div></div>' +
+      '<div class="form-field"><label>' + t('bucketPublicDomainLabel') + '</label><input placeholder="' + t('bucketPublicDomainLabel') + '" value="' + (b.publicDomain || '') + '" data-field="publicDomain" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
+      '<div style="grid-column: span 2; margin-top: 5px;">' +
+        '<div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:5px;">' + t('bucketUsageSettingsLabel') + '</div>' +
+        '<div class="usage-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">' +
+          '<div class="form-field"><label>' + t('bucketAccountIdLabel') + '</label><input placeholder="' + t('bucketAccountIdLabel') + '" value="' + (b.accountId || '') + '" data-field="accountId" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
+          '<div class="form-field"><label>' + t('bucketApiTokenLabel') + '</label><div style="display:flex; gap:6px; align-items:center;"><input placeholder="' + t('bucketConfigSecretPlaceholder') + '" type="password" data-field="apiToken" style="flex:1; padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">' + (b.hasToken ? '<span style="font-size:0.7rem; color:var(--text-muted);">' + t('bucketConfigAlreadyConfigured') + '</span>' : '') + '</div></div>' +
+        '</div>' +
+        '<small style="display:block; margin-top:4px; color:var(--text-muted);">' + t('bucketTokenHint') + '</small>' +
+      '</div>' +
+    '</div>';
   container.appendChild(div);
 }
 
 function renderBucketDetailFormFromTemp() {
-  const container = document.getElementById('bucketConfigList');
+  var container = document.getElementById('bucketConfigList');
   container.innerHTML = '';
-  const b = editingTempBucket;
-  const div = document.createElement('div');
+  var b = editingTempBucket;
+  var div = document.createElement('div');
   div.style.cssText = 'border:1px solid var(--border-light); padding:12px; border-radius:12px; background:var(--bg-progress);';
-  div.innerHTML = `
-    <div class="bucket-config-grid">
-      <div class="form-field">
-        <label>桶ID</label>
-        <input placeholder="唯一ID (如 bucket-1)" value="${b.id || ''}" data-field="id" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
-      </div>
-      <div class="form-field">
-        <label>显示名称</label>
-        <input placeholder="显示名称" value="${b.name || ''}" data-field="name" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
-      </div>
-      <div class="form-field">
-        <label>Endpoint</label>
-        <input placeholder="Endpoint (如 https://acc.r2.cloudflarestorage.com)" value="${b.endpoint || ''}" data-field="endpoint" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
-      </div>
-      <div class="form-field">
-        <label>Access Key ID</label>
-        <input placeholder="Access Key ID" value="${b.accessKeyId || ''}" data-field="accessKeyId" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
-      </div>
-      <div class="form-field">
-        <label>Secret Access Key</label>
-        <input placeholder="Secret Access Key" type="password" data-field="secretAccessKey" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
-      </div>
-      <div class="form-field">
-        <label>公共域名（可选）</label>
-        <input placeholder="公共域名" value="${b.publicDomain || ''}" data-field="publicDomain" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
-      </div>
-      <div style="grid-column: span 2; margin-top: 5px;">
-        <div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:5px;">用量统计设置（可选，需 Cloudflare API Token）</div>
-        <div class="usage-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">
-          <div class="form-field">
-            <label>Account ID</label>
-            <input placeholder="Account ID" value="${b.accountId || ''}" data-field="accountId" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
-          </div>
-          <div class="form-field">
-            <label>API Token</label>
-            <input placeholder="API Token" type="password" data-field="apiToken" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">
-          </div>
-        </div>
-        <small style="display:block; margin-top:4px; color:var(--text-muted);">Token 需拥有 Cloudflare R2 读取权限</small>
-      </div>
-    </div>
-  `;
+  div.innerHTML = 
+    '<div class="bucket-config-grid">' +
+      '<div class="form-field"><label>' + t('bucketIdLabel') + '</label><input placeholder="' + t('bucketIdLabel') + ' (如 bucket-1)" value="' + (b.id || '') + '" data-field="id" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
+      '<div class="form-field"><label>' + t('bucketNameLabel') + '</label><input placeholder="' + t('bucketNameLabel') + '" value="' + (b.name || '') + '" data-field="name" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
+      '<div class="form-field"><label>' + t('bucketEndpointLabel') + '</label><input placeholder="Endpoint (如 https://acc.r2.cloudflarestorage.com)" value="' + (b.endpoint || '') + '" data-field="endpoint" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
+      '<div class="form-field"><label>' + t('bucketAccessKeyIdLabel') + '</label><input placeholder="' + t('bucketAccessKeyIdLabel') + '" value="' + (b.accessKeyId || '') + '" data-field="accessKeyId" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
+      '<div class="form-field"><label>' + t('bucketSecretKeyLabel') + '</label><input placeholder="' + t('bucketSecretKeyLabel') + '" type="password" data-field="secretAccessKey" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
+      '<div class="form-field"><label>' + t('bucketPublicDomainLabel') + '</label><input placeholder="' + t('bucketPublicDomainLabel') + '" value="' + (b.publicDomain || '') + '" data-field="publicDomain" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
+      '<div style="grid-column: span 2; margin-top: 5px;">' +
+        '<div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:5px;">' + t('bucketUsageSettingsLabel') + '</div>' +
+        '<div class="usage-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">' +
+          '<div class="form-field"><label>' + t('bucketAccountIdLabel') + '</label><input placeholder="' + t('bucketAccountIdLabel') + '" value="' + (b.accountId || '') + '" data-field="accountId" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
+          '<div class="form-field"><label>' + t('bucketApiTokenLabel') + '</label><input placeholder="' + t('bucketApiTokenLabel') + '" type="password" data-field="apiToken" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
+        '</div>' +
+        '<small style="display:block; margin-top:4px; color:var(--text-muted);">' + t('bucketTokenHint') + '</small>' +
+      '</div>' +
+    '</div>';
   container.appendChild(div);
 }
 
 async function saveBucketConfigs() {
-  const inputs = document.querySelectorAll('#bucketConfigList input[data-field]');
-  const newData = {};
-  inputs.forEach(inp => {
+  var inputs = document.querySelectorAll('#bucketConfigList input[data-field]');
+  var newData = {};
+  inputs.forEach(function(inp) {
     newData[inp.dataset.field] = inp.value.trim();
   });
   if (!newData.id || !newData.name || !newData.endpoint || !newData.accessKeyId) {
-    showToast('请填写必填字段：ID、名称、Endpoint、Access Key ID');
+    showToast(t('toastFieldRequired'));
     return;
   }
-
-  // 检查是否是第一个桶（新建时 bucketsConfig.length === 0 且 editingBucketIndex === -1）
-  const isFirstBucket = (bucketsConfig.length === 0 && editingBucketIndex === -1);
-
+  var isFirstBucket = (bucketsConfig.length === 0 && editingBucketIndex === -1);
   if (editingBucketIndex === -1) {
-    const newBucket = {
+    var newBucket = {
       id: newData.id,
       name: newData.name,
       endpoint: newData.endpoint,
@@ -1273,13 +1648,12 @@ async function saveBucketConfigs() {
       accountId: newData.accountId || '',
       hasSecret: newData.secretAccessKey ? true : false,
       hasToken: newData.apiToken ? true : false,
-      isDefault: isFirstBucket ? true : false, // 第一个桶自动默认
+      isDefault: isFirstBucket ? true : false
     };
     bucketsConfig.push(newBucket);
   } else {
-    const oldBucket = bucketsConfig[editingBucketIndex];
-    // 编辑时保留 isDefault 字段，不自动更改
-    const updatedBucket = {
+    var oldBucket = bucketsConfig[editingBucketIndex];
+    var updatedBucket = {
       ...oldBucket,
       id: newData.id,
       name: newData.name,
@@ -1290,91 +1664,80 @@ async function saveBucketConfigs() {
       secretAccessKey: newData.secretAccessKey ? newData.secretAccessKey : oldBucket.secretAccessKey,
       apiToken: newData.apiToken ? newData.apiToken : oldBucket.apiToken,
       hasSecret: newData.secretAccessKey ? true : oldBucket.hasSecret,
-      hasToken: newData.apiToken ? true : oldBucket.hasToken,
-      // isDefault 保持不变，除非明确修改（目前界面无修改选项，所以保留）
+      hasToken: newData.apiToken ? true : oldBucket.hasToken
     };
     bucketsConfig[editingBucketIndex] = updatedBucket;
   }
-
   try {
-    const res = await fetchWithCreds('/admin/buckets', {
+    var res = await fetchWithCreds('/admin/buckets', {
       method: 'POST',
       body: JSON.stringify({ data: bucketsConfig })
     });
-    const json = await res.json();
+    var json = await res.json();
     if (json.code === 200) {
-      showToast('✅ 桶配置已保存');
+      showToast(t('toastSaveBucketSuccess'));
       bucketSizes = {};
       await fetchAllBucketUsages();
       renderBucketOptions();
-      if (currentBucketId && bucketsConfig.some(b => b.id === currentBucketId)) {
+      if (currentBucketId && bucketsConfig.some(function(b) { return b.id === currentBucketId; })) {
         updateBucketSelectLabel();
       }
       showBucketList();
     } else {
-      showToast('保存失败：' + json.msg);
+      showToast(t('toastSaveBucketFail', translateBackendMsg(json.msg)));
     }
   } catch (e) {
-    showToast('保存失败：' + e.message);
+    showToast(t('toastSaveBucketFail', e.message));
   }
 }
 
 async function saveBucketsConfigToServer() {
   try {
-    const res = await fetchWithCreds('/admin/buckets', {
+    var res = await fetchWithCreds('/admin/buckets', {
       method: 'POST',
       body: JSON.stringify({ data: bucketsConfig })
     });
-    const json = await res.json();
+    var json = await res.json();
     if (json.code !== 200) {
-      showToast('删除后同步失败：' + json.msg);
+      showToast(t('toastSaveBucketFail', translateBackendMsg(json.msg)));
     }
   } catch (e) {
-    showToast('删除后同步失败：' + e.message);
+    showToast(t('toastSaveBucketFail', e.message));
   }
 }
 
 // ---------- 账户管理 ----------
 async function loadLoginHistory() {
-  const tbody = document.getElementById('loginHistoryList');
-  tbody.innerHTML = '<tr><td colspan="4">加载中...</td></tr>';
+  var tbody = document.getElementById('loginHistoryList');
+  tbody.innerHTML = '<tr><td colspan="4">' + t('historyLoading') + '</td></tr>';
   try {
-    const res = await fetchWithCreds('/admin/login-history');
-    const json = await res.json();
+    var res = await fetchWithCreds('/admin/login-history');
+    var json = await res.json();
     if (json.code === 200) {
-      const history = json.data || [];
+      var history = json.data || [];
       tbody.innerHTML = '';
       if (history.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="4">暂无登录记录</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="4">' + t('historyNoRecords') + '</td></tr>';
         return;
       }
-      history.forEach(item => {
-        const tr = document.createElement('tr');
-        const osIcon = getOSIcon(item.ua || '');
-        tr.innerHTML = `
-          <td>${new Date(item.time).toLocaleString()}</td>
-          <td><span style="display:inline-flex;align-items:center;gap:4px;">${osIcon} ${escapeHtml(item.ip || '')}</span></td>
-          <td>
-            <div class="ua-cell">
-              <button class="copy-ua-btn" onclick="copyUA('${escapeHtml(item.ua || '')}')" title="复制UA">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="1em" height="1em"><g fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="4"><path stroke-linecap="round" d="M13 12.432v-4.62A2.813 2.813 0 0 1 15.813 5h24.374A2.813 2.813 0 0 1 43 7.813v24.375A2.813 2.813 0 0 1 40.188 35h-4.672"/><path fill="currentColor" d="M32.188 13H7.811A2.813 2.813 0 0 0 5 15.813v24.374A2.813 2.813 0 0 0 7.813 43h24.375A2.813 2.813 0 0 0 35 40.188V15.811A2.813 2.813 0 0 0 32.188 13Z"/></g></svg>
-              </button>
-              <div class="ua-text" title="${escapeHtml(item.ua || '')}">${escapeHtml(item.ua || '')}</div>
-            </div>
-          </td>
-          <td><button class="del-btn" onclick="deleteLoginHistory('${item.id}')">删除</button></td>
-        `;
+      history.forEach(function(item) {
+        var tr = document.createElement('tr');
+        var osIcon = getOSIcon(item.ua || '');
+        tr.innerHTML = 
+          '<td>' + new Date(item.time).toLocaleString() + '</td>' +
+          '<td><span style="display:inline-flex;align-items:center;gap:4px;">' + osIcon + ' ' + escapeHtml(item.ip || '') + '</span></td>' +
+          '<td><div class="ua-cell"><button class="copy-ua-btn" onclick="copyUA(\'' + escapeHtml(item.ua || '') + '\')" title="' + t('toastUACopySuccess') + '"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="1em" height="1em"><g fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="4"><path stroke-linecap="round" d="M13 12.432v-4.62A2.813 2.813 0 0 1 15.813 5h24.374A2.813 2.813 0 0 1 43 7.813v24.375A2.813 2.813 0 0 1 40.188 35h-4.672"/><path fill="currentColor" d="M32.188 13H7.811A2.813 2.813 0 0 0 5 15.813v24.374A2.813 2.813 0 0 0 7.813 43h24.375A2.813 2.813 0 0 0 35 40.188V15.811A2.813 2.813 0 0 0 32.188 13Z"/></g></svg></button><div class="ua-text" title="' + escapeHtml(item.ua || '') + '">' + escapeHtml(item.ua || '') + '</div></div></td>' +
+          '<td><button class="del-btn" onclick="deleteLoginHistory(\'' + item.id + '\')">' + t('historyActionDelete') + '</button></td>';
         tbody.appendChild(tr);
       });
     } else {
-      tbody.innerHTML = '<tr><td colspan="4">加载失败</td></tr>';
+      tbody.innerHTML = '<tr><td colspan="4">' + t('historyLoadFail') + '</td></tr>';
     }
   } catch (e) {
-    tbody.innerHTML = '<tr><td colspan="4">加载失败</td></tr>';
+    tbody.innerHTML = '<tr><td colspan="4">' + t('historyLoadFail') + '</td></tr>';
   }
 }
 
-// 检测操作系统并返回对应图标
 function detectOS(ua) {
   if (/Windows/i.test(ua)) return 'windows';
   if (/iPhone|iPad|iPod|Macintosh|Mac OS X/i.test(ua)) return 'apple';
@@ -1383,7 +1746,7 @@ function detectOS(ua) {
 }
 
 function getOSIcon(ua) {
-  const os = detectOS(ua);
+  var os = detectOS(ua);
   if (os === 'windows') {
     return '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640" width="1em" height="1em" style="flex-shrink:0;"><path fill="currentColor" d="m96 157.7l183.6-25.3v177.4H96zm0 324.6l183.6 25.3V332.4H96zm203.8 28L544 544V332.4H299.8zm0-380.6v180.1H544V96z"/></svg>';
   } else if (os === 'apple') {
@@ -1396,132 +1759,117 @@ function getOSIcon(ua) {
 }
 
 function copyUA(ua) {
-  navigator.clipboard.writeText(ua).then(() => {
-    showToast('✅ UA已复制');
-  }).catch(() => {
-    showToast('❌ 复制失败');
+  navigator.clipboard.writeText(ua).then(function() {
+    showToast(t('toastUACopySuccess'));
+  }).catch(function() {
+    showToast(t('toastUACopyFail'));
   });
 }
 
 async function deleteLoginHistory(id) {
-  if (!confirm('确定删除该登录设备？对应设备将被强制下线。')) return;
+  if (!confirm(t('historyDeleteConfirm'))) return;
   try {
-    const res = await fetchWithCreds('/admin/delete-login-history', {
+    var res = await fetchWithCreds('/admin/delete-login-history', {
       method: 'POST',
-      body: JSON.stringify({ id })
+      body: JSON.stringify({ id: id })
     });
-    const json = await res.json();
+    var json = await res.json();
     if (json.code === 200) {
-      showToast('✅ 已删除');
+      showToast(t('toastHistoryDeleteSuccess'));
       loadLoginHistory();
     } else {
-      showToast('删除失败：' + json.msg);
+      showToast(t('toastHistoryDeleteFail', translateBackendMsg(json.msg)));
     }
   } catch (e) {
-    showToast('删除失败：' + e.message);
+    showToast(t('toastHistoryDeleteFail', e.message));
   }
 }
 
 async function submitChangePwd() {
-  const oldPwd = document.getElementById('oldPwdInput').value;
-  const newPwd = document.getElementById('newPwdInput').value;
+  var oldPwd = document.getElementById('oldPwdInput').value;
+  var newPwd = document.getElementById('newPwdInput').value;
   if (!newPwd || newPwd.length < 6) {
-    showToast('新密码至少6位');
+    showToast(t('toastNewPwdMinLength'));
     return;
   }
   try {
-    const res = await fetchWithCreds('/admin/change-password', {
+    var res = await fetchWithCreds('/admin/change-password', {
       method: 'POST',
-      body: JSON.stringify({ oldPwd, newPwd })
+      body: JSON.stringify({ oldPwd: oldPwd, newPwd: newPwd })
     });
-    const json = await res.json();
+    var json = await res.json();
     if (json.code === 200) {
-      showToast('✅ ' + json.msg);
+      showToast(t('toastPwdChangeSuccess', translateBackendMsg(json.msg)));
       document.getElementById('oldPwdInput').value = '';
       document.getElementById('newPwdInput').value = '';
       await logout();
     } else {
-      showToast('修改失败：' + json.msg);
+      showToast(t('toastPwdChangeFail', translateBackendMsg(json.msg)));
     }
   } catch (e) {
-    showToast('修改失败：' + e.message);
+    showToast(t('toastPwdChangeFail', e.message));
   }
 }
 
 // ---------- 文件列表 ----------
-async function getFileList(path = currentPath) {
+async function getFileList(path) {
+  path = path || currentPath;
   if (!currentBucketId) {
-    document.getElementById('fileList').innerHTML = '<tr><td colspan="4">请先选择一个桶</td></tr>';
+    document.getElementById('fileList').innerHTML = '<tr><td colspan="4">' + t('toastBucketRequired') + '</td></tr>';
     return;
   }
   currentPath = path;
-  const statusDom = document.getElementById('status');
-  const listDom = document.getElementById('fileList');
-  statusDom.innerText = '加载中...';
+  var statusDom = document.getElementById('status');
+  var listDom = document.getElementById('fileList');
+  statusDom.innerText = t('loading');
   selectedKeys.clear();
   updateBatchDelButton();
   listDom.classList.add('fade-out');
-  setTimeout(async () => {
+  setTimeout(async function() {
     try {
-      const res = await fetchWithCreds(`/list?path=${encodeURIComponent(path)}&bucketId=${currentBucketId}`);
-      const json = await res.json();
+      var res = await fetchWithCreds('/list?path=' + encodeURIComponent(path) + '&bucketId=' + currentBucketId);
+      var json = await res.json();
       listDom.innerHTML = '';
       renderBread(path);
-      currentFilesList = json.files.map(f => ({ name: f.name, url: f.url, fullKey: f.fullKey, downloadUrl: f.downloadUrl || '' }));
-
-      // 渲染文件夹
-      json.folders.forEach(item => {
-        const tr = document.createElement('tr');
-        const folderName = item.name.replace('/', '');
+      currentFilesList = json.files.map(function(f) { return { name: f.name, url: f.url, fullKey: f.fullKey, downloadUrl: f.downloadUrl || '' }; });
+      json.folders.forEach(function(item) {
+        var tr = document.createElement('tr');
+        var folderName = item.name.replace('/', '');
         tr.setAttribute('data-key', item.path);
         tr.addEventListener('click', handleRowClick);
-        tr.innerHTML = `
-          <td>
-            <a onclick="event.stopPropagation(); openFolder('${item.path}')" style="cursor:pointer;">📁 ${escapeHtml(folderName)}</a>
-          </td>
-          <td>—</td>
-          <td>—</td>
-          <td>
-            <button class="copy-btn" onclick="event.stopPropagation(); openRename('${encodeURIComponent(item.path)}', '${escapeHtml(folderName)}')">重命名</button>
-            <button class="del-btn" onclick="event.stopPropagation(); delItem('${item.path}')">删除</button>
-          </td>
-        `;
+        tr.innerHTML = 
+          '<td><a onclick="event.stopPropagation(); openFolder(\'' + item.path + '\')" style="cursor:pointer;">📁 ' + escapeHtml(folderName) + '</a></td>' +
+          '<td>—</td><td>—</td>' +
+          '<td><button class="copy-btn" onclick="event.stopPropagation(); openRename(\'' + encodeURIComponent(item.path) + '\', \'' + escapeHtml(folderName) + '\')">' + t('rename') + '</button><button class="del-btn" onclick="event.stopPropagation(); delItem(\'' + item.path + '\')">' + t('delete') + '</button></td>';
         listDom.appendChild(tr);
       });
-
-      // 渲染文件
-      json.files.forEach(item => {
-        const tr = document.createElement('tr');
-        const size = formatSize(item.size);
-        const time = new Date(item.uploadTime).toLocaleString();
-        const ext = item.name.split('.').pop().toLowerCase();
-        const isTextFile = ['js','css','html','txt','json','md','xml','yml','yaml','ini','conf','log','csv'].includes(ext);
+      json.files.forEach(function(item) {
+        var tr = document.createElement('tr');
+        var size = formatSize(item.size);
+        var time = new Date(item.uploadTime).toLocaleString();
+        var ext = item.name.split('.').pop().toLowerCase();
+        var isTextFile = ['js','css','html','txt','json','md','xml','yml','yaml','ini','conf','log','csv'].indexOf(ext) !== -1;
         tr.setAttribute('data-key', item.fullKey);
         tr.addEventListener('click', handleRowClick);
-        tr.innerHTML = `
-          <td>
-            <span onclick="event.stopPropagation(); openRename('${encodeURIComponent(item.fullKey)}', '${escapeHtml(item.name)}')" style="cursor:pointer;">📄 ${escapeHtml(item.name)}</span>
-          </td>
-          <td>${size}</td>
-          <td>${time}</td>
-          <td>
-            ${item.url ? `<a href="${item.url}" target="_blank" onclick="event.stopPropagation();">预览</a>` : ''}
-            <button class="copy-btn" onclick="event.stopPropagation(); downloadFile('${item.downloadUrl}')">下载</button>
-            <button class="copy-btn" onclick="event.stopPropagation(); copyLink('${item.url}', '${escapeHtml(item.name)}')">复制链接</button>
-            ${isTextFile ? `<button class="copy-btn" onclick="event.stopPropagation(); openEditor('${encodeURIComponent(item.fullKey)}', '${escapeHtml(item.name)}')">编辑</button>` : ''}
-            <button class="del-btn" onclick="event.stopPropagation(); delItem('${item.fullKey}')">删除</button>
-          </td>
-        `;
+        var actions = '';
+        if (item.url) actions += '<a href="' + item.url + '" target="_blank" onclick="event.stopPropagation();">' + t('preview') + '</a>';
+        actions += '<button class="copy-btn" onclick="event.stopPropagation(); downloadFile(\'' + item.downloadUrl + '\')">' + t('download') + '</button>';
+        actions += '<button class="copy-btn" onclick="event.stopPropagation(); copyLink(\'' + item.url + '\', \'' + escapeHtml(item.name) + '\')">' + t('copyLink') + '</button>';
+        if (isTextFile) actions += '<button class="copy-btn" onclick="event.stopPropagation(); openEditor(\'' + encodeURIComponent(item.fullKey) + '\', \'' + escapeHtml(item.name) + '\')">' + t('edit') + '</button>';
+        actions += '<button class="del-btn" onclick="event.stopPropagation(); delItem(\'' + item.fullKey + '\')">' + t('delete') + '</button>';
+        tr.innerHTML = 
+          '<td><span onclick="event.stopPropagation(); openRename(\'' + encodeURIComponent(item.fullKey) + '\', \'' + escapeHtml(item.name) + '\')" style="cursor:pointer;">📄 ' + escapeHtml(item.name) + '</span></td>' +
+          '<td>' + size + '</td><td>' + time + '</td>' +
+          '<td>' + actions + '</td>';
         listDom.appendChild(tr);
       });
-
       if (json.folders.length + json.files.length === 0) {
-        listDom.innerHTML = "<tr class='empty-row'><td colspan='4'>📭 当前目录为空</td></tr>";
+        listDom.innerHTML = "<tr class='empty-row'><td colspan='4'>" + t('emptyFolder') + "</td></tr>";
       }
-      statusDom.innerText = `📁 ${json.folders.length} · 📄 ${json.files.length}`;
+      statusDom.innerText = t('statusFolderCount', json.folders.length, json.files.length);
     } catch (e) {
-      statusDom.innerText = '加载失败：' + e.message;
-      showToast('加载失败：' + e.message);
+      statusDom.innerText = t('loading') + ' ' + e.message;
+      showToast(t('toastReadFail', e.message));
     } finally {
       listDom.classList.remove('fade-out');
     }
@@ -1530,12 +1878,11 @@ async function getFileList(path = currentPath) {
 
 function openFolder(fullPath) { getFileList(fullPath); }
 
-// ---------- 行选中处理 ----------
+// ---------- 行选中 ----------
 function handleRowClick(e) {
-  const tr = e.currentTarget;
-  const key = tr.getAttribute('data-key');
+  var tr = e.currentTarget;
+  var key = tr.getAttribute('data-key');
   if (!key) return;
-  
   if (selectedKeys.has(key)) {
     selectedKeys.delete(key);
     tr.classList.remove('selected');
@@ -1547,7 +1894,7 @@ function handleRowClick(e) {
 }
 
 function updateBatchDelButton() {
-  const btn = document.getElementById('batchDelBtn');
+  var btn = document.getElementById('batchDelBtn');
   if (selectedKeys.size > 0) {
     btn.disabled = false;
     btn.classList.add('active');
@@ -1569,44 +1916,39 @@ function closeNewFolderModal() {
 }
 
 async function submitNewFolder() {
-  const dirName = document.getElementById('newFolderInput').value.trim();
-  if (!dirName) { showToast('请输入文件夹名称'); return; }
-  const fullDir = currentPath + dirName;
+  var dirName = document.getElementById('newFolderInput').value.trim();
+  if (!dirName) { showToast(t('toastFolderNameRequired')); return; }
+  var fullDir = currentPath + dirName;
   try {
-    await fetchWithCreds(`/mkdir?path=${encodeURIComponent(fullDir)}&bucketId=${currentBucketId}`, {
+    await fetchWithCreds('/mkdir?path=' + encodeURIComponent(fullDir) + '&bucketId=' + currentBucketId, {
       method: 'POST'
     });
     closeNewFolderModal();
     getFileList();
   } catch (e) {
-    showToast('创建失败：' + e.message);
+    showToast(t('toastCreateFolderFail', e.message));
   }
 }
 
 // ---------- 上传 ----------
 async function uploadFiles() {
-  const fileInput = document.getElementById('fileInp');
-  const files = Array.from(fileInput.files);
-  if (files.length === 0) { showToast('请选择文件'); return; }
-
-  const container = document.getElementById('uploadProgressContainer');
+  var fileInput = document.getElementById('fileInp');
+  var files = Array.from(fileInput.files);
+  if (files.length === 0) { showToast(t('toastNoFile')); return; }
+  var container = document.getElementById('uploadProgressContainer');
   container.innerHTML = '';
   container.style.display = 'flex';
-
-  const progressItems = [];
-  for (let i = 0; i < files.length; i++) {
-    const file = files[i];
-    const itemDiv = document.createElement('div');
+  var progressItems = [];
+  for (var i = 0; i < files.length; i++) {
+    var file = files[i];
+    var itemDiv = document.createElement('div');
     itemDiv.className = 'progress-item';
     itemDiv.setAttribute('data-index', i);
-    itemDiv.innerHTML = `
-      <div class="upload-status-icon"><span class="pulse-dot"></span></div>
-      <div class="file-label" title="${escapeHtml(file.name)}">${escapeHtml(file.name)}</div>
-      <div class="progress-bar-bg">
-        <div class="progress-bar-fill uploading" style="width:0%"></div>
-      </div>
-      <div class="progress-percent">0%</div>
-    `;
+    itemDiv.innerHTML = 
+      '<div class="upload-status-icon"><span class="pulse-dot"></span></div>' +
+      '<div class="file-label" title="' + escapeHtml(file.name) + '">' + escapeHtml(file.name) + '</div>' +
+      '<div class="progress-bar-bg"><div class="progress-bar-fill uploading" style="width:0%"></div></div>' +
+      '<div class="progress-percent">0%</div>';
     container.appendChild(itemDiv);
     progressItems.push({
       div: itemDiv,
@@ -1615,22 +1957,22 @@ async function uploadFiles() {
       file: file
     });
   }
-
-  let completed = 0, failed = 0;
-  const statusDom = document.getElementById('status');
-  const CONCURRENCY = 3;
-  const queue = [...progressItems];
-
+  var completed = 0, failed = 0;
+  var statusDom = document.getElementById('status');
+  var CONCURRENCY = 3;
+  var queue = progressItems.slice();
   async function uploadOne(item) {
-    const { file, fill, percentSpan, div } = item;
-    const xhr = new XMLHttpRequest();
-    const fd = new FormData();
+    var file = item.file;
+    var fill = item.fill;
+    var percentSpan = item.percentSpan;
+    var div = item.div;
+    var xhr = new XMLHttpRequest();
+    var fd = new FormData();
     fd.append('file', file);
-
-    return new Promise((resolve) => {
+    return new Promise(function(resolve) {
       xhr.upload.onprogress = function(e) {
         if (e.lengthComputable) {
-          const percent = Math.round((e.loaded / e.total) * 100);
+          var percent = Math.round((e.loaded / e.total) * 100);
           fill.style.width = percent + '%';
           percentSpan.innerText = percent + '%';
           if (percent === 100) fill.classList.remove('uploading');
@@ -1653,104 +1995,98 @@ async function uploadFiles() {
         failed++;
         resolve();
       };
-      xhr.open('POST', `/upload?path=${encodeURIComponent(currentPath)}&bucketId=${currentBucketId}`);
+      xhr.open('POST', '/upload?path=' + encodeURIComponent(currentPath) + '&bucketId=' + currentBucketId);
       xhr.withCredentials = true;
       xhr.send(fd);
     });
   }
-
   async function processNext() {
     while (queue.length) {
-      const item = queue.shift();
+      var item = queue.shift();
       await uploadOne(item);
-      statusDom.innerText = `上传中：已完成 ${completed} / ${progressItems.length}，失败 ${failed}`;
+      statusDom.innerText = t('statusUploading', completed, progressItems.length, failed);
     }
   }
-
-  const workers = [];
-  for (let i = 0; i < Math.min(CONCURRENCY, queue.length); i++) {
+  var workers = [];
+  for (var j = 0; j < Math.min(CONCURRENCY, queue.length); j++) {
     workers.push(processNext());
   }
   await Promise.all(workers);
-  statusDom.innerText = `✅ 上传完成：成功 ${completed} 个，失败 ${failed} 个`;
-  showToast(`上传完成，成功 ${completed} 个`);
-  setTimeout(() => {
+  statusDom.innerText = t('statusUploadDone', completed, failed);
+  showToast(t('toastUploadSuccess', completed));
+  setTimeout(function() {
     getFileList();
-    setTimeout(() => { container.style.display = 'none'; }, 2000);
+    setTimeout(function() { container.style.display = 'none'; }, 2000);
   }, 500);
 }
 
-// ---------- 删除（单个） ----------
+// ---------- 删除 ----------
 async function delItem(fullKey) {
-  const isFolder = fullKey.endsWith('/');
-  const displayName = isFolder ? fullKey.slice(0, -1).split('/').pop() : fullKey.split('/').pop();
-  if (!confirm(`确认删除 ${displayName}？\n删除后不可恢复`)) return;
+  var isFolder = fullKey.endsWith('/');
+  var displayName = isFolder ? fullKey.slice(0, -1).split('/').pop() : fullKey.split('/').pop();
+  if (!confirm(t('toastDeleteItemConfirm', displayName))) return;
   try {
-    const res = await fetchWithCreds(`/del?key=${encodeURIComponent(fullKey)}&bucketId=${currentBucketId}`, {
+    var res = await fetchWithCreds('/del?key=' + encodeURIComponent(fullKey) + '&bucketId=' + currentBucketId, {
       method: 'DELETE'
     });
     if (res.ok) {
-      showToast('✅ 删除成功');
+      showToast(t('toastDeleteSuccess'));
       getFileList();
     } else {
-      const json = await res.json();
-      showToast('删除失败：' + (json.msg || res.status));
+      var json = await res.json();
+      showToast(t('toastDeleteFail', translateBackendMsg(json.msg) || res.status));
     }
   } catch (e) {
-    showToast('删除失败：' + e.message);
+    showToast(t('toastDeleteFail', e.message));
   }
 }
 
 // ---------- 批量删除 ----------
 async function batchDelete() {
   if (selectedKeys.size === 0) return;
-  
-  const keys = Array.from(selectedKeys);
-  const displayNames = keys.map(k => {
+  var keys = Array.from(selectedKeys);
+  var displayNames = keys.map(function(k) {
     if (k.endsWith('/')) {
       return k.slice(0, -1).split('/').pop();
     } else {
       return k.split('/').pop();
     }
   });
-  
-  if (!confirm(`确认删除以下 ${keys.length} 项？\n${displayNames.join('\n')}\n\n删除后不可恢复`)) return;
-  
+  if (!confirm(t('toastBatchDeleteConfirm', keys.length, displayNames.join('\n')))) return;
   try {
-    const res = await fetchWithCreds(`/del-batch?bucketId=${currentBucketId}`, {
+    var res = await fetchWithCreds('/del-batch?bucketId=' + currentBucketId, {
       method: 'POST',
-      body: JSON.stringify({ keys })
+      body: JSON.stringify({ keys: keys })
     });
-    const json = await res.json();
+    var json = await res.json();
     if (json.code === 200) {
-      showToast(`✅ 成功删除 ${json.deletedCount || keys.length} 项`);
+      showToast(t('toastBatchDeleteSuccess', json.deletedCount || keys.length));
       selectedKeys.clear();
       updateBatchDelButton();
       getFileList();
     } else {
-      showToast('批量删除失败：' + (json.msg || res.status));
+      showToast(t('toastBatchDeleteFail', translateBackendMsg(json.msg) || res.status));
     }
   } catch (e) {
-    showToast('批量删除失败：' + e.message);
+    showToast(t('toastBatchDeleteFail', e.message));
   }
 }
 
 // ---------- 复制链接 ----------
 function copyLink(url, fileName) {
-  if (!url) { showToast('该桶未配置公共域名，无法复制链接'); return; }
-  navigator.clipboard.writeText(url).then(() => {
-    showToast(`✅ 已复制链接：${fileName}`);
-  }).catch(() => {
-    showToast('❌ 复制失败，可手动复制');
+  if (!url) { showToast(t('toastNoPublicDomain')); return; }
+  navigator.clipboard.writeText(url).then(function() {
+    showToast(t('toastCopySuccess', fileName));
+  }).catch(function() {
+    showToast(t('toastCopyFail'));
   });
 }
 
 // ---------- 下载 ----------
 function downloadFile(downloadUrl) {
-  if (!downloadUrl) { showToast('下载地址无效'); return; }
-  showToast('请等待浏览器唤起下载');
-  
-  const a = document.createElement('a');
+  if (!downloadUrl) { showToast(t('toastDownloadInvalid')); return; }
+  showToast(t('toastDownloadWait'));
+  var a = document.createElement('a');
   a.href = downloadUrl;
   document.body.appendChild(a);
   a.click();
@@ -1762,17 +2098,17 @@ function openEditor(encodedKey, fileName) {
   currentEditKey = decodeURIComponent(encodedKey);
   document.getElementById('editorFileName').innerText = fileName;
   document.getElementById('editorModal').classList.add('active');
-  const textarea = document.getElementById('editorContent');
-  textarea.value = '加载中...';
-  fetchWithCreds(`/read?key=${encodedKey}&bucketId=${currentBucketId}`)
-    .then(res => {
-      if (!res.ok) throw new Error('读取失败：' + res.status);
+  var textarea = document.getElementById('editorContent');
+  textarea.value = t('loading');
+  fetchWithCreds('/read?key=' + encodedKey + '&bucketId=' + currentBucketId)
+    .then(function(res) {
+      if (!res.ok) throw new Error(t('toastReadFail', res.status));
       return res.json();
     })
-    .then(json => { textarea.value = json.content; })
-    .catch(e => {
+    .then(function(json) { textarea.value = json.content; })
+    .catch(function(e) {
       textarea.value = '';
-      showToast('读取文件失败：' + e.message);
+      showToast(t('toastReadFail', e.message));
     });
 }
 function closeEditor() {
@@ -1781,22 +2117,22 @@ function closeEditor() {
 }
 async function saveEditor() {
   if (!currentEditKey) return;
-  const content = document.getElementById('editorContent').value;
+  var content = document.getElementById('editorContent').value;
   try {
-    const res = await fetchWithCreds(`/write?key=${encodeURIComponent(currentEditKey)}&bucketId=${currentBucketId}`, {
+    var res = await fetchWithCreds('/write?key=' + encodeURIComponent(currentEditKey) + '&bucketId=' + currentBucketId, {
       method: 'PUT',
-      body: JSON.stringify({ content })
+      body: JSON.stringify({ content: content })
     });
-    const json = await res.json();
+    var json = await res.json();
     if (json.code === 200) {
-      showToast('✅ 保存成功');
+      showToast(t('toastSaveSuccess'));
       closeEditor();
       getFileList();
     } else {
-      showToast('保存失败：' + json.msg);
+      showToast(t('toastSaveFail', translateBackendMsg(json.msg)));
     }
   } catch (e) {
-    showToast('保存失败：' + e.message);
+    showToast(t('toastSaveFail', e.message));
   }
 }
 
@@ -1811,7 +2147,7 @@ function openRename(encodedKey, oldName) {
 }
 function openRenameFromEditor() {
   if (!currentEditKey) return;
-  const fileName = currentEditKey.split('/').pop();
+  var fileName = currentEditKey.split('/').pop();
   openRename(encodeURIComponent(currentEditKey), fileName);
 }
 function closeRename() {
@@ -1820,100 +2156,92 @@ function closeRename() {
 }
 async function submitRename() {
   if (!currentRenameKey) return;
-  const oldKey = currentRenameKey;
-  const newName = document.getElementById('renameInput').value.trim();
-  if (!newName) { showToast('请输入新名称'); return; }
-  if (newName.includes('/')) { showToast('名称不能包含 /'); return; }
-
+  var oldKey = currentRenameKey;
+  var newName = document.getElementById('renameInput').value.trim();
+  if (!newName) { showToast(t('toastRenameNewNameRequired')); return; }
+  if (newName.indexOf('/') !== -1) { showToast(t('toastRenameSlashNotAllowed')); return; }
   try {
-    const res = await fetchWithCreds(`/rename?oldKey=${encodeURIComponent(oldKey)}&newName=${encodeURIComponent(newName)}&bucketId=${currentBucketId}`, {
+    var res = await fetchWithCreds('/rename?oldKey=' + encodeURIComponent(oldKey) + '&newName=' + encodeURIComponent(newName) + '&bucketId=' + currentBucketId, {
       method: 'POST'
     });
-    const json = await res.json();
+    var json = await res.json();
     if (json.code === 200) {
-      showToast('✅ 重命名成功');
+      showToast(t('toastRenameSuccess'));
       if (currentEditKey && currentEditKey === oldKey) {
-        const lastSlashIndex = oldKey.lastIndexOf('/');
-        const dirPath = lastSlashIndex >= 0 ? oldKey.substring(0, lastSlashIndex + 1) : '';
+        var lastSlashIndex = oldKey.lastIndexOf('/');
+        var dirPath = lastSlashIndex >= 0 ? oldKey.substring(0, lastSlashIndex + 1) : '';
         currentEditKey = dirPath + newName;
         document.getElementById('editorFileName').innerText = newName;
       }
       closeRename();
       getFileList();
     } else {
-      showToast('重命名失败：' + (json.msg || res.status));
+      showToast(t('toastRenameFail', translateBackendMsg(json.msg) || res.status));
     }
   } catch (e) {
-    showToast('重命名失败：' + e.message);
+    showToast(t('toastRenameFail', e.message));
   }
 }
 
 // ---------- 导出链接 ----------
 function exportAllLinks() {
   if (currentFilesList.length === 0) {
-    showToast('当前目录无文件，无法导出');
+    showToast(t('toastNoFilesExport'));
     return;
   }
-  let text = "文件名\t文件链接\n";
-  currentFilesList.forEach(f => {
-    text += `${f.name}\t${f.url || '（无公共域名）'}\n`;
+  var text = "文件名\t文件链接\n";
+  currentFilesList.forEach(function(f) {
+    text += f.name + '\t' + (f.url || t('toastNoPublicDomain')) + '\n';
   });
-  navigator.clipboard.writeText(text).then(() => {
-    showToast(`📋 已复制 ${currentFilesList.length} 个文件的链接到剪贴板`);
-  }).catch(() => {
-    showToast('复制失败，可手动选择');
+  navigator.clipboard.writeText(text).then(function() {
+    showToast(t('toastExportSuccess', currentFilesList.length));
+  }).catch(function() {
+    showToast(t('toastExportFail'));
   });
 }
 
-// ========== 页面加载自动检查登录状态（含首次使用检测） ==========
+// ========== 页面加载 ==========
 window.onload = async function() {
-  const loadingOverlay = document.getElementById('loadingOverlay');
+  applyTranslations();
+  var loadingOverlay = document.getElementById('loadingOverlay');
   loadingOverlay.style.display = 'flex';
-
   try {
-    // 1. 检查密码是否已设置
-    const statusRes = await fetch('/admin/password-status');
-    const statusJson = await statusRes.json();
-
+    var statusRes = await fetch('/admin/password-status');
+    var statusJson = await statusRes.json();
     if (!statusJson.set) {
-      // 密码未设置直接进入初始化密码模式
       document.getElementById('loginBox').style.display = 'flex';
-      document.getElementById('loginTitle').innerText = '初始化密码';
-      document.getElementById('pwdInput').placeholder = '设置新密码（至少6位）';
-      document.getElementById('loginBtn').innerText = '设置密码';
+      document.getElementById('loginTitle').innerText = t('initPwdTitle');
+      document.getElementById('pwdInput').placeholder = t('initPwdPlaceholder');
+      document.getElementById('loginBtn').innerText = t('initPwdBtnText');
       document.getElementById('loginBtn').onclick = initPassword;
       document.getElementById('initPwdBtn').style.display = 'none';
       document.getElementById('loginTip').innerText = '';
       document.getElementById('mainBox').style.display = 'none';
       loadingOverlay.classList.add('fade-out');
-      setTimeout(() => loadingOverlay.style.display = 'none', 400);
+      setTimeout(function() { loadingOverlay.style.display = 'none'; }, 400);
       return;
     }
-
-    // 2. 密码已设置 尝试自动登录（检查 token）
-    const res = await fetchWithCreds('/admin/buckets');
+    var res = await fetchWithCreds('/admin/buckets');
     if (res.status === 401) {
-      // 未登录，显示普通登录框
       loadingOverlay.classList.add('fade-out');
-      setTimeout(() => loadingOverlay.style.display = 'none', 400);
+      setTimeout(function() { loadingOverlay.style.display = 'none'; }, 400);
       return;
     }
-    const json = await res.json();
+    var json = await res.json();
     if (json.code === 200) {
-      // 已登录，直接显示主界面
       document.getElementById('loginBox').style.display = 'none';
-      const mainBox = document.getElementById('mainBox');
+      var mainBox = document.getElementById('mainBox');
       mainBox.style.display = 'block';
       void mainBox.offsetWidth;
       mainBox.classList.add('visible');
       await loadBuckets();
-      fetchWithCreds('/admin/update-session', { method: 'POST' }).catch(() => {});
+      fetchWithCreds('/admin/update-session', { method: 'POST' }).catch(function() {});
     }
   } catch (e) {
     console.warn('自动登录检查失败，请手动登录', e);
   } finally {
     loadingOverlay.classList.add('fade-out');
-    setTimeout(() => {
+    setTimeout(function() {
       loadingOverlay.style.display = 'none';
     }, 400);
   }
