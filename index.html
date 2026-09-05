@@ -1829,21 +1829,20 @@ async function saveBucketsConfigToServer() {
 // ---------- 账户管理 ----------
 async function loadLoginHistory() {
   var tbody = document.getElementById('loginHistoryList');
-  // 动态生成表
   tbody.innerHTML = '<tr><td>' + t('historyLoading') + '</td><td></td><td></td><td></td></tr>';
   try {
     var res = await fetchWithCreds('/admin/login-history');
     var json = await res.json();
     if (json.code === 200) {
       var history = json.data || [];
+      history.sort(function(a, b) {
+        return new Date(b.time) - new Date(a.time);
+      });
       tbody.innerHTML = '';
       if (history.length === 0) {
         tbody.innerHTML = '<tr><td colspan="4">' + t('historyNoRecords') + '</td></tr>';
         return;
       }
-      var thead = document.createElement('thead');
-      thead.innerHTML = '<tr><th>' + t('historyHeaderTime') + '</th><th>' + t('historyHeaderIP') + '</th><th>' + t('historyHeaderUA') + '</th><th>' + t('historyHeaderAction') + '</th></tr>';
-      tbody.parentNode.insertBefore(thead, tbody);
       var table = tbody.parentNode;
       table.innerHTML = '';
       var newThead = document.createElement('thead');
@@ -1862,6 +1861,7 @@ async function loadLoginHistory() {
         newTbody.appendChild(tr);
       });
       table.appendChild(newTbody);
+      // 重新引用 tbody
       window.loginHistoryList = newTbody;
     } else {
       tbody.innerHTML = '<tr><td colspan="4">' + t('historyLoadFail') + '</td></tr>';
