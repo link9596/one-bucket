@@ -1103,7 +1103,7 @@ function translateBackendMsg(originalMsg) {
 function applyTranslations() {
   var dict = i18n[lang];
 
-  // 1. 处理带有 data-i18n 的元素（弹窗标题等）
+  // 1. 处理带有 data-i18n 的元素
   document.querySelectorAll('[data-i18n]').forEach(function(el) {
     var key = el.getAttribute('data-i18n');
     if (dict[key] !== undefined) {
@@ -1123,12 +1123,10 @@ function applyTranslations() {
     }
   });
 
-  // 2. 硬编码元素（无 data-i18n 属性）直接设置
-  // 2.1 主界面标题
+  // 2. 硬编码元素（无 data-i18n 属性）
   var h2 = document.querySelector('.wrap h2');
   if (h2) h2.textContent = t('appTitle');
 
-  // 2.2 顶部操作按钮
   var uploadBtn = document.querySelector('.upload-btn');
   if (uploadBtn) uploadBtn.textContent = t('uploadBtn');
   var exportBtn = document.querySelector('.export-btn');
@@ -1136,23 +1134,19 @@ function applyTranslations() {
   var logoutBtn = document.querySelector('.top-bar button[onclick*="logout"]');
   if (logoutBtn) logoutBtn.textContent = t('logoutBtn');
 
-  // 2.3 管理桶按钮（在桶切换栏）
   var manageBtn = document.querySelector('[onclick="openBucketManager()"]');
   if (manageBtn) manageBtn.textContent = t('manageBuckets');
 
-  // 2.4 桶选择下拉默认标签
   var selectLabel = document.getElementById('bucketSelectLabel');
   if (selectLabel && selectLabel.textContent === '-- 请选择桶 --') {
     selectLabel.textContent = t('bucketSelectNone');
   }
 
-  // 2.5 状态栏
   var statusEl = document.getElementById('status');
   if (statusEl && statusEl.textContent === '就绪') {
     statusEl.textContent = t('statusReady');
   }
 
-  // 2.6 表格表头
   var ths = document.querySelectorAll('.table-wrapper thead th');
   if (ths.length >= 4) {
     ths[0].textContent = t('headerName');
@@ -1161,7 +1155,6 @@ function applyTranslations() {
     ths[3].textContent = t('headerAction');
   }
 
-  // 2.7 登录框相关（如果可见，但通常登录时未加载主界面）
   var loginTitle = document.getElementById('loginTitle');
   if (loginTitle) loginTitle.textContent = t('loginTitle');
   var pwdInput = document.getElementById('pwdInput');
@@ -1171,10 +1164,9 @@ function applyTranslations() {
   var initBtn = document.getElementById('initPwdBtn');
   if (initBtn) initBtn.textContent = t('initPwdBtn');
 
-  // 2.8 编辑器相关（“编辑文件：”部分）
+  // 编辑器
   var editorH3 = document.querySelector('#editorModal h3');
   if (editorH3) {
-    // 保留内部的 span 和按钮，只替换文本节点
     var children = editorH3.childNodes;
     for (var i = 0; i < children.length; i++) {
       if (children[i].nodeType === 3 && children[i].textContent.trim() === '编辑文件：') {
@@ -1182,15 +1174,25 @@ function applyTranslations() {
       }
     }
   }
-  // 编辑器按钮
   var editorCancel = document.querySelector('#editorModal .modal-actions button:first-child');
   if (editorCancel) editorCancel.textContent = t('editorCancel');
   var editorSave = document.querySelector('#editorModal .modal-actions button:last-child');
   if (editorSave) editorSave.textContent = t('editorSave');
 
-  // 2.9 重命名弹窗
+  // 重命名弹窗
   var renameTitle = document.querySelector('#renameModal h3');
   if (renameTitle) renameTitle.textContent = t('renameTitle');
+  // 修改当前名称的 p 标签
+  var renameP = document.querySelector('#renameModal p');
+  if (renameP) {
+    // 保留内部的 span，替换文本节点
+    var pChildren = renameP.childNodes;
+    for (var j = 0; j < pChildren.length; j++) {
+      if (pChildren[j].nodeType === 3 && pChildren[j].textContent.trim() === '当前名称：') {
+        pChildren[j].textContent = t('renameCurrentName');
+      }
+    }
+  }
   var renameCancel = document.querySelector('#renameModal .modal-actions button:first-child');
   if (renameCancel) renameCancel.textContent = t('renameCancel');
   var renameConfirm = document.querySelector('#renameModal .modal-actions button:last-child');
@@ -1198,7 +1200,7 @@ function applyTranslations() {
   var renameInput = document.getElementById('renameInput');
   if (renameInput) renameInput.placeholder = t('renameInputPlaceholder');
 
-  // 2.10 新建文件夹弹窗
+  // 新建文件夹弹窗
   var folderTitle = document.querySelector('#newFolderModal h3');
   if (folderTitle) folderTitle.textContent = t('newFolderTitle');
   var folderCancel = document.querySelector('#newFolderModal .modal-actions button:first-child');
@@ -1208,25 +1210,22 @@ function applyTranslations() {
   var folderInput = document.getElementById('newFolderInput');
   if (folderInput) folderInput.placeholder = t('newFolderInputPlaceholder');
 
-  // 2.11 桶管理弹窗标题（默认“桶列表”）
+  // 桶管理弹窗
   var mgrTitle = document.getElementById('bucketManagerTitle');
   if (mgrTitle) mgrTitle.textContent = t('bucketListTitle');
-  // 桶管理底部按钮
   var accountBtn = document.querySelector('#bucketListView .footer-actions button:first-child');
   if (accountBtn) accountBtn.textContent = t('bucketAccountMgmt');
   var closeBtn = document.querySelector('#bucketListView .footer-actions button:last-child');
   if (closeBtn) closeBtn.textContent = t('bucketClose');
-  // 桶详情视图的返回和保存
   var backBtn = document.querySelector('#bucketDetailView .modal-actions button:first-child');
   if (backBtn) backBtn.textContent = t('bucketBack');
   var saveBtn = document.querySelector('#bucketDetailView .modal-actions button:last-child');
   if (saveBtn) saveBtn.textContent = t('bucketSaveConfig');
-  // 账户视图
   var accBack = document.querySelector('#accountView .modal-actions button:first-child');
   if (accBack) accBack.textContent = t('bucketBack');
   var accClose = document.querySelector('#accountView .modal-actions button:last-child');
   if (accClose) accClose.textContent = t('bucketClose');
-  // 账户页面的标题和占位符
+
   var changePwdTitle = document.querySelector('#accountView h4');
   if (changePwdTitle) changePwdTitle.textContent = t('changePwdTitle');
   var oldPwd = document.getElementById('oldPwdInput');
@@ -1237,23 +1236,14 @@ function applyTranslations() {
   if (confirmPwdBtn) confirmPwdBtn.textContent = t('confirmOldPwd');
   var historyTitle = document.querySelector('#accountView h4:nth-of-type(2)');
   if (historyTitle) historyTitle.textContent = t('loginHistoryTitle');
-  var historyHeaders = document.querySelectorAll('#loginHistoryList thead th');
-  if (historyHeaders.length >= 4) {
-    historyHeaders[0].textContent = t('historyHeaderTime');
-    historyHeaders[1].textContent = t('historyHeaderIP');
-    historyHeaders[2].textContent = t('historyHeaderUA');
-    historyHeaders[3].textContent = t('historyHeaderAction');
-  }
 
-  // 2.12 刷新、新建文件夹、批量删除的 title
+  // 刷新、新建文件夹、批量删除的 title
   var refreshBtn = document.querySelector('.refresh-btn');
   if (refreshBtn) refreshBtn.title = t('refreshBtnTitle');
   var newFolderBtn = document.getElementById('newFolderBtn');
   if (newFolderBtn) newFolderBtn.title = t('newFolderBtnTitle');
   var batchBtn = document.getElementById('batchDelBtn');
   if (batchBtn) batchBtn.title = t('batchDelBtnTitle');
-
-  // 2.13 面包屑中的“根目录”在 renderBread 中已经使用 t('rootPath')，不用额外处理
 }
 
 // ============================================================
@@ -1839,7 +1829,8 @@ async function saveBucketsConfigToServer() {
 // ---------- 账户管理 ----------
 async function loadLoginHistory() {
   var tbody = document.getElementById('loginHistoryList');
-  tbody.innerHTML = '<tr><td colspan="4">' + t('historyLoading') + '</td></tr>';
+  // 动态生成表
+  tbody.innerHTML = '<tr><td>' + t('historyLoading') + '</td><td></td><td></td><td></td></tr>';
   try {
     var res = await fetchWithCreds('/admin/login-history');
     var json = await res.json();
@@ -1850,6 +1841,16 @@ async function loadLoginHistory() {
         tbody.innerHTML = '<tr><td colspan="4">' + t('historyNoRecords') + '</td></tr>';
         return;
       }
+      var thead = document.createElement('thead');
+      thead.innerHTML = '<tr><th>' + t('historyHeaderTime') + '</th><th>' + t('historyHeaderIP') + '</th><th>' + t('historyHeaderUA') + '</th><th>' + t('historyHeaderAction') + '</th></tr>';
+      tbody.parentNode.insertBefore(thead, tbody);
+      var table = tbody.parentNode;
+      table.innerHTML = '';
+      var newThead = document.createElement('thead');
+      newThead.innerHTML = '<tr><th>' + t('historyHeaderTime') + '</th><th>' + t('historyHeaderIP') + '</th><th>' + t('historyHeaderUA') + '</th><th>' + t('historyHeaderAction') + '</th></tr>';
+      table.appendChild(newThead);
+      var newTbody = document.createElement('tbody');
+      newTbody.id = 'loginHistoryList';
       history.forEach(function(item) {
         var tr = document.createElement('tr');
         var osIcon = getOSIcon(item.ua || '');
@@ -1858,8 +1859,10 @@ async function loadLoginHistory() {
           '<td><span style="display:inline-flex;align-items:center;gap:4px;">' + osIcon + ' ' + escapeHtml(item.ip || '') + '</span></td>' +
           '<td><div class="ua-cell"><button class="copy-ua-btn" onclick="copyUA(\'' + escapeHtml(item.ua || '') + '\')" title="' + t('toastUACopySuccess') + '"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="1em" height="1em"><g fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="4"><path stroke-linecap="round" d="M13 12.432v-4.62A2.813 2.813 0 0 1 15.813 5h24.374A2.813 2.813 0 0 1 43 7.813v24.375A2.813 2.813 0 0 1 40.188 35h-4.672"/><path fill="currentColor" d="M32.188 13H7.811A2.813 2.813 0 0 0 5 15.813v24.374A2.813 2.813 0 0 0 7.813 43h24.375A2.813 2.813 0 0 0 35 40.188V15.811A2.813 2.813 0 0 0 32.188 13Z"/></g></svg></button><div class="ua-text" title="' + escapeHtml(item.ua || '') + '">' + escapeHtml(item.ua || '') + '</div></div></td>' +
           '<td><button class="del-btn" onclick="deleteLoginHistory(\'' + item.id + '\')">' + t('historyActionDelete') + '</button></td>';
-        tbody.appendChild(tr);
+        newTbody.appendChild(tr);
       });
+      table.appendChild(newTbody);
+      window.loginHistoryList = newTbody;
     } else {
       tbody.innerHTML = '<tr><td colspan="4">' + t('historyLoadFail') + '</td></tr>';
     }
@@ -1942,13 +1945,14 @@ async function submitChangePwd() {
 }
 
 // ---------- 文件列表 ----------
-async function getFileList(path) {
-  path = path || currentPath;
+// 修复：允许传入空字符串表示根目录
+function getFileList(path) {
+  var targetPath = (path !== undefined) ? path : currentPath;
   if (!currentBucketId) {
     document.getElementById('fileList').innerHTML = '<tr><td colspan="4">' + t('toastBucketRequired') + '</td></tr>';
     return;
   }
-  currentPath = path;
+  currentPath = targetPath;
   var statusDom = document.getElementById('status');
   var listDom = document.getElementById('fileList');
   statusDom.innerText = t('loading');
@@ -1957,10 +1961,10 @@ async function getFileList(path) {
   listDom.classList.add('fade-out');
   setTimeout(async function() {
     try {
-      var res = await fetchWithCreds('/list?path=' + encodeURIComponent(path) + '&bucketId=' + currentBucketId);
+      var res = await fetchWithCreds('/list?path=' + encodeURIComponent(targetPath) + '&bucketId=' + currentBucketId);
       var json = await res.json();
       listDom.innerHTML = '';
-      renderBread(path);
+      renderBread(targetPath);
       currentFilesList = json.files.map(function(f) { return { name: f.name, url: f.url, fullKey: f.fullKey, downloadUrl: f.downloadUrl || '' }; });
       json.folders.forEach(function(item) {
         var tr = document.createElement('tr');
@@ -2270,6 +2274,14 @@ async function saveEditor() {
 function openRename(encodedKey, oldName) {
   currentRenameKey = decodeURIComponent(encodedKey);
   document.getElementById('renameOldName').innerText = oldName;
+  // 确保当前名称标签已翻译
+  var renameP = document.querySelector('#renameModal p');
+  if (renameP) {
+    var textNode = renameP.childNodes[0];
+    if (textNode && textNode.nodeType === 3 && textNode.textContent.trim() === '当前名称：') {
+      textNode.textContent = t('renameCurrentName');
+    }
+  }
   document.getElementById('renameInput').value = oldName;
   document.getElementById('renameModal').classList.add('active');
   document.getElementById('renameInput').focus();
