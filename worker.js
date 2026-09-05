@@ -816,7 +816,9 @@ export default {
       const res = await bucket.list({ prefix: curPath, delimiter: "/" });
       const folders = res.delimitedPrefixes.map(p => ({ name: p, isFolder: true, path: p, url: "" }));
       const publicDomain = bucketConf?.publicDomain || '';
-      const files = res.objects.map(item => ({
+      const files = res.objects
+      .filter(item => !(item.key === curPath && curPath.endsWith('/')))
+      .map(item => ({
         name: item.key.replace(curPath, ""),
         fullKey: item.key,
         size: item.size,
