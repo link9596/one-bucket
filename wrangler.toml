@@ -8,7 +8,8 @@ compatibility_date = "2025-01-01"
 
 [[kv_namespaces]]
 binding = "SESSION_KV"
-
+id = "your_session_kv_id"
 
 [[kv_namespaces]]
 binding = "BUCKET_CONFIG"
+id = "your_bucket_config_id"
