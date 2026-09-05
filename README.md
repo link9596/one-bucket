@@ -6,7 +6,7 @@
 
 支持 **Cloudflare R2** 及任意 **S3 兼容对象存储**，Pages 前端 + Worker 后端，开箱即用。
 
-[简体中文](./README.md) · [English](./README.en.md) 
+简体中文 · [English](./README.en.md) 
 
 ---
 
