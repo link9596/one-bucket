@@ -17,7 +17,7 @@
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/link9596/one-bucket)
 
-[**⌨️ 快速开始**](#快速开始) · [**☁️ 在线预览**](https://link9596.github.io/one-bucket) · [**💬 反馈**](https://github.com/link9596/one-bucket/issues) · [**🛡️ 安全**](#安全设计) · [**💡 常见问题**](#常见问题)
+[**⌨️ 快速开始**](#快速开始) · [**☁️ 在线预览**](https://r2-file.lkin.cn/web/demo/OneBucket-demo.html) · [**💬 反馈**](https://github.com/link9596/one-bucket/issues) · [**🛡️ 安全**](#安全设计) · [**💡 常见问题**](#常见问题)
 
 </div>
 
