@@ -27,10 +27,20 @@
 
 OneBucket 是一个部署在 **Cloudflare Workers** 上的轻量级云存储管理工具。你可以在一个后台里同时接入多个存储桶（R2 或任何兼容 S3 协议的对象存储），通过网页界面完成文件的上传、下载、预览、在线编辑、重命名、删除等操作，并可直接生成文件的公共直链用于分享。
 
+## 应用截图
+
+<table rules="none">
+  <tr>
+    <td><img src="https://r2-file.lkin.cn/screenshot/onebucket1.jpg" width="auto" height="600" alt="主页面"/></td>
+    <td><img src="https://r2-file.lkin.cn/screenshot/onebucket2.jpg" width="auto" height="600" alt="管理界面"/></td>
+  </tr>
+</table>
+
 ## 功能特性
 
 ### 📁 文件管理
 - **多桶管理**：在后台可视化管理多个存储桶（R2 / 任意 S3 兼容服务），支持增删改配置
+- **多语言**：原生支持中英文
 - **目录浏览**：面包屑路径导航、文件夹层级展示、文件大小 / 上传时间展示
 - **批量上传**：多文件队列上传，**3 路并发**，逐文件实时进度条，成功 / 失败统计
 - **新建文件夹**：一键创建目录占位对象
