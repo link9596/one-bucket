@@ -57,6 +57,8 @@ OneBucket 是一个部署在 **Cloudflare Workers** 上的轻量级云存储管�
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/link9596/one-bucket/)
 
+在部署界面需要给两个 KV namespace 命不同名字来避免部署时提示冲突。
+
 部署完毕后添加`MASTER_KEY`环境变量，值可以是随机UUID或其他足够强度的随机字符串。
 
 ### 方式二：手动部署
