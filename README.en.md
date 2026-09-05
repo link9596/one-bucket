@@ -15,7 +15,7 @@ Supports **Cloudflare R2** and any **S3-compatible object storage**. Pages front
 
 [![Deploy to Cloudflare](https://deploy.workers.cloudflare.com/button)](https://deploy.workers.cloudflare.com/?url=https://github.com/link9596/one-bucket)
 
-[**⚡ Quick Start**](#quick-start) · [**☁️ Live Demo**](https://link9596.github.io/one-bucket) · [**💬 Feedback**](https://github.com/link9596/one-bucket/issues) · [**🛡️ Security**](#security-design) · [**💡 FAQ**](#faq)
+[**⚡ Quick Start**](#quick-start) · [**☁️ Live Demo**](https://r2-file.lkin.cn/web/demo/OneBucket-demo.html) · [**💬 Feedback**](https://github.com/link9596/one-bucket/issues) · [**🛡️ Security**](#security-design) · [**💡 FAQ**](#faq)
 
 </div>
 
@@ -25,11 +25,21 @@ Supports **Cloudflare R2** and any **S3-compatible object storage**. Pages front
 
 OneBucket is a lightweight cloud storage management tool deployed on **Cloudflare Workers**. You can connect multiple storage buckets (R2 or any S3-compatible object storage) in a single admin panel, and manage files — upload, download, preview, edit inline, rename, delete — through a web UI. It can also generate public shareable links for your files.
 
+## 应用截图
+
+<table rules="none">
+  <tr>
+    <td><img src="https://r2-file.lkin.cn/screenshot/onebucket1.jpg" width="auto" height="600" alt="main"/></td>
+    <td><img src="https://r2-file.lkin.cn/screenshot/onebucket2.jpg" width="auto" height="600" alt="mg"/></td>
+  </tr>
+</table>
+
 ## Features
 
 ### 📁 File Management
 
 - **Multi-bucket** — manage multiple storage buckets (R2 / any S3-compatible service) visually in the admin panel, add / edit / remove configs
+- **Multilingual** — Supports switching between Chinese and English following browser language settings
 - **Directory browsing** — breadcrumb path navigation, folder hierarchy display, file size / upload time display
 - **Batch upload** — queued multi-file upload with **3-way concurrency**, per-file real-time progress bars, success / failure stats
 - **New folder** — create directory placeholder objects in one click
