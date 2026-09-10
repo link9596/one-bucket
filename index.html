@@ -105,7 +105,6 @@
       transition: background-color 0.3s ease;
     }
 
-    /* 全局滚动条样式 */
     html {
       scrollbar-width: thin;
       scrollbar-color: var(--scroll-bar) transparent;
@@ -171,17 +170,15 @@
 
     .status-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 12px; flex-wrap: wrap; }
     .tip { font-size: 0.8rem; color: var(--text-secondary); background: var(--bg-progress); padding: 8px 12px; border-radius: 20px; }
-    
-    /* 刷新按钮样式 */
+
     .refresh-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--bg-progress); border: none; cursor: pointer; color: var(--text-secondary); transition: all 0.2s; padding:0px;}
     .refresh-btn:hover { background: var(--border-light); color: var(--text-primary); }
     .refresh-btn:active { transform: rotate(180deg); }
     .refresh-btn svg { width: 18px; height: 18px; }
-    
+
     .operate-btn { display: inline-flex; align-items: center; justify-content: center; width: 32px; height: 32px; border-radius: 50%; background: var(--bg-progress); border: none; cursor: pointer; color: var(--text-secondary); transition: all 0.2s; padding:0px;}
     .operate-btn:hover { background: var(--border-light); color: var(--text-primary); }
     .operate-btn svg { width: 18px; height: 18px; }
-    /* 批量删除按钮额外样式 */
     .batch-del-btn {
       color: var(--text-muted);
       cursor: not-allowed;
@@ -237,7 +234,6 @@
     td button.del-btn { background: var(--btn-danger); color: white; }
     td button.del-btn:hover { background: var(--btn-danger-hover); }
 
-    /* 选中行高亮 */
     tr.selected {
       background: var(--bg-progress) !important;
     }
@@ -252,7 +248,6 @@
     .empty-row td { text-align: center; color: var(--text-muted); padding: 40px; }
     .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: var(--toast-bg); color: var(--toast-color); padding: 8px 18px; border-radius: 40px; font-size: 0.8rem; z-index: 9999; opacity: 0; transition: opacity 0.2s; pointer-events: none; }
 
-    /* 模态框公用 */
     .modal-overlay {
       display: flex; position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: rgba(0,0,0,0.6); z-index: 300; align-items: center; justify-content: center;
@@ -269,7 +264,6 @@
     .modal-content h3 { color: var(--text-primary); margin-bottom: 10px; }
     .modal-actions { margin-top: 15px; display: flex; gap: 10px; justify-content: flex-end; border-top: 1px solid var(--border-light); padding-top: 15px; }
 
-    /* 桶配置表单网格 */
     .bucket-config-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     @media (max-width: 768px) {
       .bucket-config-grid { grid-template-columns: 1fr; }
@@ -277,7 +271,6 @@
       .usage-grid { grid-template-columns: 1fr !important; }
     }
 
-    /* 全屏加载动画覆盖层 */
     .loading-overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
       background: #1e293b; display: flex; align-items: center; justify-content: center;
@@ -289,7 +282,6 @@
     .loading-brand span { font-size: 2rem; font-weight: 700; color: #ffffff; }
     .loading-dots svg { width: 32px; height: 32px; fill: #ffffff; color: #ffffff; }
 
-    /* 自定义桶选择下拉 */
     .custom-select { position: relative; flex: 1; min-width: 150px; user-select: none; }
     .custom-select-trigger { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--border-light); background: var(--bg-input); color: var(--text-primary); cursor: pointer; transition: border-color 0.2s, box-shadow 0.2s; }
     .custom-select-trigger:hover { border-color: var(--btn-primary); }
@@ -301,7 +293,6 @@
     .custom-select-option:hover { background: var(--bg-progress); }
     .custom-select-option.selected { background: var(--bg-progress); font-weight: 600; }
 
-    /* 桶卡片列表样式 */
     .bucket-card-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 15px; padding:5px;}
     @media (max-width: 480px) { .bucket-card-list { grid-template-columns: 1fr; } }
     .bucket-card {
@@ -322,7 +313,6 @@
     }
     .bucket-card .delete-icon:hover { color: var(--btn-danger); }
 
-    /* 默认桶星星按钮 */
     .set-default-btn {
       background: none;
       border: none;
@@ -347,7 +337,6 @@
       height: 20px;
     }
 
-    /* 添加桶卡片样式 */
     .add-bucket-card {
       display: flex;
       align-items: center;
@@ -366,14 +355,12 @@
       background: var(--bg-progress);
     }
 
-    /* 登录历史表格 */
     .history-table-wrapper {
       max-height: 300px;
       overflow-y: auto;
       margin-top: 10px;
     }
 
-    /* UA 单元格滚动 */
     .ua-cell {
       display: flex;
       align-items: center;
@@ -386,7 +373,7 @@
       max-width: 180px;
       scrollbar-width: thin;
     }
-    
+
     .copy-ua-btn {
       background: none;
       border: none;
@@ -402,11 +389,9 @@
       color: var(--btn-primary);
     }
 
-    /* 文件列表过渡 */
     #fileList { transition: opacity 0.2s ease; }
     #fileList.fade-out { opacity: 0; }
 
-    /* 非线性动画 */
     .bucket-view {
       transition: transform 0.45s cubic-bezier(0.22, 1, 0.36, 1), opacity 0.4s ease;
     }
@@ -414,7 +399,6 @@
       transition: height 0.45s cubic-bezier(0.22, 1, 0.36, 1);
     }
 
-    /* 初始化密码 */
     #initPwdBtn {
       background: none;
       border: none;
@@ -427,7 +411,6 @@
       padding: 5px;
     }
 
-    /* 视图容器定位 */
     #bucketViewContainer {
       position: relative;
       overflow: hidden;
@@ -458,7 +441,6 @@
       pointer-events: none;
     }
 
-    /* 字段标签样式 */
     .form-field {
       display: flex;
       flex-direction: column;
@@ -470,7 +452,6 @@
       font-weight: 500;
     }
 
-    /* 底部按钮左右分布 */
     .footer-actions {
       justify-content: space-between !important;
     }
@@ -536,7 +517,6 @@
 
   <div class="status-bar">
     <div class="tip" id="status">就绪</div>
-    <!-- 刷新按钮 -->
     <button class="refresh-btn" onclick="getFileList()" title="刷新">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="1em" height="1em">
         <g fill="none">
@@ -545,7 +525,6 @@
         </g>
       </svg>
     </button>
-    <!-- 新建文件夹按钮 -->
     <button class="operate-btn" id="newFolderBtn" title="新建文件夹" onclick="openNewFolderModal()">
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="1em" height="1em">
         <g fill="none">
@@ -554,7 +533,6 @@
         </g>
       </svg>
     </button>
-    <!-- 批量删除按钮 -->
     <button class="operate-btn batch-del-btn" id="batchDelBtn" title="删除选中项" onclick="batchDelete()" disabled>
       <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="15px" height="15px"><g fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="4"><path stroke-linecap="round" d="M8 11h32M18 5h12"></path><path fill="currentColor" d="M12 17h24v23a3 3 0 0 1-3 3H15a3 3 0 0 1-3-3z"></path></g></svg>
     </button>
@@ -620,19 +598,15 @@
       <h3 id="bucketManagerTitle">📦 桶列表</h3>
     </div>
 
-    <!-- 视图容器：用于滑动动画 -->
     <div id="bucketViewContainer">
-      <!-- 一级视图：桶卡片列表 -->
       <div id="bucketListView" class="bucket-view active">
         <div class="bucket-card-list" id="bucketCardList"></div>
-        <!-- 底部按钮：账户管理在左，关闭在右 -->
         <div class="modal-actions footer-actions">
           <button onclick="showAccountView()" style="background:var(--btn-primary);">🔐 账户管理</button>
           <button onclick="closeBucketManager()" style="background:var(--btn-gray);">关闭</button>
         </div>
       </div>
 
-      <!-- 二级视图：桶详情表单 -->
       <div id="bucketDetailView" class="bucket-view inactive-right">
         <div id="bucketConfigList" style="display:flex; flex-direction:column; gap:15px;"></div>
         <div class="modal-actions">
@@ -641,7 +615,6 @@
         </div>
       </div>
 
-      <!-- 三级视图：账户管理 -->
       <div id="accountView" class="bucket-view inactive-right">
         <h4 style="margin-bottom:10px;color:var(--text-primary);">修改密码</h4>
         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-bottom:20px;">
@@ -1103,7 +1076,6 @@ function translateBackendMsg(originalMsg) {
 function applyTranslations() {
   var dict = i18n[lang];
 
-  // 1. 处理带有 data-i18n 的元素
   document.querySelectorAll('[data-i18n]').forEach(function(el) {
     var key = el.getAttribute('data-i18n');
     if (dict[key] !== undefined) {
@@ -1123,7 +1095,6 @@ function applyTranslations() {
     }
   });
 
-  // 2. 硬编码元素（无 data-i18n 属性）
   var h2 = document.querySelector('.wrap h2');
   if (h2) h2.textContent = t('appTitle');
 
@@ -1164,7 +1135,6 @@ function applyTranslations() {
   var initBtn = document.getElementById('initPwdBtn');
   if (initBtn) initBtn.textContent = t('initPwdBtn');
 
-  // 编辑器
   var editorH3 = document.querySelector('#editorModal h3');
   if (editorH3) {
     var children = editorH3.childNodes;
@@ -1179,13 +1149,10 @@ function applyTranslations() {
   var editorSave = document.querySelector('#editorModal .modal-actions button:last-child');
   if (editorSave) editorSave.textContent = t('editorSave');
 
-  // 重命名弹窗
   var renameTitle = document.querySelector('#renameModal h3');
   if (renameTitle) renameTitle.textContent = t('renameTitle');
-  // 修改当前名称的 p 标签
   var renameP = document.querySelector('#renameModal p');
   if (renameP) {
-    // 保留内部的 span，替换文本节点
     var pChildren = renameP.childNodes;
     for (var j = 0; j < pChildren.length; j++) {
       if (pChildren[j].nodeType === 3 && pChildren[j].textContent.trim() === '当前名称：') {
@@ -1200,7 +1167,6 @@ function applyTranslations() {
   var renameInput = document.getElementById('renameInput');
   if (renameInput) renameInput.placeholder = t('renameInputPlaceholder');
 
-  // 新建文件夹弹窗
   var folderTitle = document.querySelector('#newFolderModal h3');
   if (folderTitle) folderTitle.textContent = t('newFolderTitle');
   var folderCancel = document.querySelector('#newFolderModal .modal-actions button:first-child');
@@ -1210,7 +1176,6 @@ function applyTranslations() {
   var folderInput = document.getElementById('newFolderInput');
   if (folderInput) folderInput.placeholder = t('newFolderInputPlaceholder');
 
-  // 桶管理弹窗
   var mgrTitle = document.getElementById('bucketManagerTitle');
   if (mgrTitle) mgrTitle.textContent = t('bucketListTitle');
   var accountBtn = document.querySelector('#bucketListView .footer-actions button:first-child');
@@ -1237,7 +1202,6 @@ function applyTranslations() {
   var historyTitle = document.querySelector('#accountView h4:nth-of-type(2)');
   if (historyTitle) historyTitle.textContent = t('loginHistoryTitle');
 
-  // 刷新、新建文件夹、批量删除的 title
   var refreshBtn = document.querySelector('.refresh-btn');
   if (refreshBtn) refreshBtn.title = t('refreshBtnTitle');
   var newFolderBtn = document.getElementById('newFolderBtn');
@@ -1247,7 +1211,7 @@ function applyTranslations() {
 }
 
 // ============================================================
-// 2. 原有业务逻辑（全部替换为翻译版本）
+// 2. 原有业务逻辑
 // ============================================================
 var currentPath = "";
 var currentFilesList = [];
@@ -1275,14 +1239,32 @@ function formatSize(b) {
   return (b / 1048576).toFixed(2) + " MB";
 }
 
+// ==================== XSS 修复核心 ====================
+// 1) escapeHtml：用于纯文本/属性文本上下文，转义 & < > " '
+//    原版只转义 & < >，文件名含单引号会打穿内联事件的 JS 字符串。
 function escapeHtml(str) {
-  if (!str) return "";
-  return str.replace(/[&<>]/g, function(m) {
+  if (str === null || str === undefined) return "";
+  return String(str).replace(/[&<>"']/g, function(m) {
     if (m === '&') return '&amp;';
     if (m === '<') return '&lt;';
     if (m === '>') return '&gt;';
+    if (m === '"') return '&quot;';
+    if (m === "'") return '&#39;';
     return m;
   });
+}
+
+// 2) jsStr：用于把任意字符串安全地嵌入内联事件处理器里当 JS 字符串字面量。
+//    做法：先用 JSON.stringify 生成合法的 JS 字符串（自动处理引号、反斜杠、换行、控制字符），
+//    再对整个结果做 HTML 属性转义，避免破坏外层 onclick="..." 的双引号边界。
+//    这样文件名中的 ' " \ 换行 < > 等都会变成字符串内容，而不会被当作代码执行。
+function jsStr(str) {
+  var s = String(str === null || str === undefined ? '' : str);
+  return JSON.stringify(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
 }
 
 function renderBread(path) {
@@ -1296,7 +1278,7 @@ function renderBread(path) {
     arr.push({ name: name, full: temp });
   });
   arr.forEach(function(item) {
-    html += ' / <a onclick="getFileList(\'' + item.full + '\')">' + escapeHtml(item.name) + '</a>';
+    html += ' / <a onclick="getFileList(' + jsStr(item.full) + ')">' + escapeHtml(item.name) + '</a>';
   });
   box.innerHTML = html;
 }
@@ -1598,7 +1580,7 @@ function showAccountView() {
 
 function addBucketRow() {
   editingBucketIndex = -1;
-  editingTempBucket = { id: '', name: '', accountId: '', endpoint: '', accessKeyId: '', secretAccessKey: '', apiToken: '', publicDomain: '', hasSecret: false, hasToken: false, isDefault: false };
+  editingTempBucket = { id: '', name: '', accountId: '', endpoint: '', accessKeyId: '', secretAccessKey: '', apiToken: '', publicDomain: '', region: '', hasSecret: false, hasToken: false, isDefault: false };
   document.getElementById('bucketManagerTitle').innerText = t('bucketAddTitle');
   renderBucketDetailFormFromTemp();
   switchView('detail');
@@ -1632,7 +1614,7 @@ function renderBucketCardList() {
           '<div class="card-bucket-name">' + escapeHtml(b.id || t('bucketNoId')) + '</div>' +
           domainHtml +
         '</div>' +
-        '<button class="set-default-btn ' + (b.isDefault ? 'is-default' : '') + '" onclick="event.stopPropagation(); setDefaultBucket(\'' + b.id + '\')" title="' + (b.isDefault ? t('bucketDefaultTooltip') : t('bucketSetDefaultTooltip')) + '">' +
+        '<button class="set-default-btn ' + (b.isDefault ? 'is-default' : '') + '" onclick="event.stopPropagation(); setDefaultBucket(' + jsStr(b.id) + ')" title="' + (b.isDefault ? t('bucketDefaultTooltip') : t('bucketSetDefaultTooltip')) + '">' +
           starSvg +
         '</button>' +
       '</div>' +
@@ -1701,16 +1683,16 @@ function renderBucketDetailForm(index) {
   div.style.cssText = 'border:1px solid var(--border-light); padding:12px; border-radius:12px; background:var(--bg-progress);';
   div.innerHTML = 
     '<div class="bucket-config-grid">' +
-      '<div class="form-field"><label>' + t('bucketIdLabel') + '</label><input value="' + (b.id || '') + '" data-field="id" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
-      '<div class="form-field"><label>' + t('bucketNameLabel') + '</label><input placeholder="' + t('bucketNameLabel') + '" value="' + (b.name || '') + '" data-field="name" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
-      '<div class="form-field"><label>' + t('bucketEndpointLabel') + '</label><input placeholder="Endpoint (https://acc.r2.cloudflarestorage.com)" value="' + (b.endpoint || '') + '" data-field="endpoint" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
-      '<div class="form-field"><label>' + t('bucketAccessKeyIdLabel') + '</label><input placeholder="' + t('bucketAccessKeyIdLabel') + '" value="' + (b.accessKeyId || '') + '" data-field="accessKeyId" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
+      '<div class="form-field"><label>' + t('bucketIdLabel') + '</label><input value="' + escapeHtml(b.id || '') + '" data-field="id" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
+      '<div class="form-field"><label>' + t('bucketNameLabel') + '</label><input placeholder="' + t('bucketNameLabel') + '" value="' + escapeHtml(b.name || '') + '" data-field="name" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
+      '<div class="form-field"><label>' + t('bucketEndpointLabel') + '</label><input placeholder="Endpoint (https://acc.r2.cloudflarestorage.com)" value="' + escapeHtml(b.endpoint || '') + '" data-field="endpoint" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
+      '<div class="form-field"><label>' + t('bucketAccessKeyIdLabel') + '</label><input placeholder="' + t('bucketAccessKeyIdLabel') + '" value="' + escapeHtml(b.accessKeyId || '') + '" data-field="accessKeyId" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
       '<div class="form-field"><label>' + t('bucketSecretKeyLabel') + '</label><div style="display:flex; gap:6px; align-items:center;"><input placeholder="' + t('bucketConfigSecretPlaceholder') + '" type="password" data-field="secretAccessKey" style="flex:1; padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">' + (b.hasSecret ? '<span style="font-size:0.7rem; color:var(--text-muted);">' + t('bucketConfigAlreadyConfigured') + '</span>' : '') + '</div></div>' +
-      '<div class="form-field"><label>' + t('bucketPublicDomainLabel') + '</label><input placeholder="' + t('bucketPublicDomainLabel') + '" value="' + (b.publicDomain || '') + '" data-field="publicDomain" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
+      '<div class="form-field"><label>' + t('bucketPublicDomainLabel') + '</label><input placeholder="' + t('bucketPublicDomainLabel') + '" value="' + escapeHtml(b.publicDomain || '') + '" data-field="publicDomain" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
       '<div style="grid-column: span 2; margin-top: 5px;">' +
         '<div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:5px;">' + t('bucketUsageSettingsLabel') + '</div>' +
         '<div class="usage-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">' +
-          '<div class="form-field"><label>' + t('bucketAccountIdLabel') + '</label><input placeholder="' + t('bucketAccountIdLabel') + '" value="' + (b.accountId || '') + '" data-field="accountId" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
+          '<div class="form-field"><label>' + t('bucketAccountIdLabel') + '</label><input placeholder="' + t('bucketAccountIdLabel') + '" value="' + escapeHtml(b.accountId || '') + '" data-field="accountId" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
           '<div class="form-field"><label>' + t('bucketApiTokenLabel') + '</label><div style="display:flex; gap:6px; align-items:center;"><input placeholder="' + t('bucketConfigSecretPlaceholder') + '" type="password" data-field="apiToken" style="flex:1; padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);">' + (b.hasToken ? '<span style="font-size:0.7rem; color:var(--text-muted);">' + t('bucketConfigAlreadyConfigured') + '</span>' : '') + '</div></div>' +
         '</div>' +
         '<small style="display:block; margin-top:4px; color:var(--text-muted);">' + t('bucketTokenHint') + '</small>' +
@@ -1727,16 +1709,16 @@ function renderBucketDetailFormFromTemp() {
   div.style.cssText = 'border:1px solid var(--border-light); padding:12px; border-radius:12px; background:var(--bg-progress);';
   div.innerHTML = 
     '<div class="bucket-config-grid">' +
-      '<div class="form-field"><label>' + t('bucketIdLabel') + '</label><input placeholder="' + t('bucketIdLabel') + '" value="' + (b.id || '') + '" data-field="id" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
-      '<div class="form-field"><label>' + t('bucketNameLabel') + '</label><input placeholder="' + t('bucketNameLabel') + '" value="' + (b.name || '') + '" data-field="name" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
-      '<div class="form-field"><label>' + t('bucketEndpointLabel') + '</label><input placeholder="Endpoint (https://acc.r2.cloudflarestorage.com)" value="' + (b.endpoint || '') + '" data-field="endpoint" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
-      '<div class="form-field"><label>' + t('bucketAccessKeyIdLabel') + '</label><input placeholder="' + t('bucketAccessKeyIdLabel') + '" value="' + (b.accessKeyId || '') + '" data-field="accessKeyId" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
+      '<div class="form-field"><label>' + t('bucketIdLabel') + '</label><input placeholder="' + t('bucketIdLabel') + '" value="' + escapeHtml(b.id || '') + '" data-field="id" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
+      '<div class="form-field"><label>' + t('bucketNameLabel') + '</label><input placeholder="' + t('bucketNameLabel') + '" value="' + escapeHtml(b.name || '') + '" data-field="name" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
+      '<div class="form-field"><label>' + t('bucketEndpointLabel') + '</label><input placeholder="Endpoint (https://acc.r2.cloudflarestorage.com)" value="' + escapeHtml(b.endpoint || '') + '" data-field="endpoint" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
+      '<div class="form-field"><label>' + t('bucketAccessKeyIdLabel') + '</label><input placeholder="' + t('bucketAccessKeyIdLabel') + '" value="' + escapeHtml(b.accessKeyId || '') + '" data-field="accessKeyId" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
       '<div class="form-field"><label>' + t('bucketSecretKeyLabel') + '</label><input placeholder="' + t('bucketSecretKeyLabel') + '" type="password" data-field="secretAccessKey" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
-      '<div class="form-field"><label>' + t('bucketPublicDomainLabel') + '</label><input placeholder="' + t('bucketPublicDomainLabel') + '" value="' + (b.publicDomain || '') + '" data-field="publicDomain" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
+      '<div class="form-field"><label>' + t('bucketPublicDomainLabel') + '</label><input placeholder="' + t('bucketPublicDomainLabel') + '" value="' + escapeHtml(b.publicDomain || '') + '" data-field="publicDomain" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
       '<div style="grid-column: span 2; margin-top: 5px;">' +
         '<div style="font-size:0.8rem; color:var(--text-muted); margin-bottom:5px;">' + t('bucketUsageSettingsLabel') + '</div>' +
         '<div class="usage-grid" style="display:grid; grid-template-columns:1fr 1fr; gap:10px;">' +
-          '<div class="form-field"><label>' + t('bucketAccountIdLabel') + '</label><input placeholder="' + t('bucketAccountIdLabel') + '" value="' + (b.accountId || '') + '" data-field="accountId" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
+          '<div class="form-field"><label>' + t('bucketAccountIdLabel') + '</label><input placeholder="' + t('bucketAccountIdLabel') + '" value="' + escapeHtml(b.accountId || '') + '" data-field="accountId" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
           '<div class="form-field"><label>' + t('bucketApiTokenLabel') + '</label><input placeholder="' + t('bucketApiTokenLabel') + '" type="password" data-field="apiToken" style="padding:8px; border-radius:8px; border:1px solid var(--border-light); background:var(--bg-input); color:var(--text-primary);"></div>' +
         '</div>' +
         '<small style="display:block; margin-top:4px; color:var(--text-muted);">' + t('bucketTokenHint') + '</small>' +
@@ -1856,12 +1838,11 @@ async function loadLoginHistory() {
         tr.innerHTML = 
           '<td>' + new Date(item.time).toLocaleString() + '</td>' +
           '<td><span style="display:inline-flex;align-items:center;gap:4px;">' + osIcon + ' ' + escapeHtml(item.ip || '') + '</span></td>' +
-          '<td><div class="ua-cell"><button class="copy-ua-btn" onclick="copyUA(\'' + escapeHtml(item.ua || '') + '\')" title="' + t('toastUACopySuccess') + '"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="1em" height="1em"><g fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="4"><path stroke-linecap="round" d="M13 12.432v-4.62A2.813 2.813 0 0 1 15.813 5h24.374A2.813 2.813 0 0 1 43 7.813v24.375A2.813 2.813 0 0 1 40.188 35h-4.672"/><path fill="currentColor" d="M32.188 13H7.811A2.813 2.813 0 0 0 5 15.813v24.374A2.813 2.813 0 0 0 7.813 43h24.375A2.813 2.813 0 0 0 35 40.188V15.811A2.813 2.813 0 0 0 32.188 13Z"/></g></svg></button><div class="ua-text" title="' + escapeHtml(item.ua || '') + '">' + escapeHtml(item.ua || '') + '</div></div></td>' +
-          '<td><button class="del-btn" onclick="deleteLoginHistory(\'' + item.id + '\')">' + t('historyActionDelete') + '</button></td>';
+          '<td><div class="ua-cell"><button class="copy-ua-btn" onclick="copyUA(' + jsStr(item.ua || '') + ')" title="' + t('toastUACopySuccess') + '"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" width="1em" height="1em"><g fill="none" stroke="currentColor" stroke-linejoin="round" stroke-width="4"><path stroke-linecap="round" d="M13 12.432v-4.62A2.813 2.813 0 0 1 15.813 5h24.374A2.813 2.813 0 0 1 43 7.813v24.375A2.813 2.813 0 0 1 40.188 35h-4.672"/><path fill="currentColor" d="M32.188 13H7.811A2.813 2.813 0 0 0 5 15.813v24.374A2.813 2.813 0 0 0 7.813 43h24.375A2.813 2.813 0 0 0 35 40.188V15.811A2.813 2.813 0 0 0 32.188 13Z"/></g></svg></button><div class="ua-text" title="' + escapeHtml(item.ua || '') + '">' + escapeHtml(item.ua || '') + '</div></div></td>' +
+          '<td><button class="del-btn" onclick="deleteLoginHistory(' + jsStr(item.id) + ')">' + t('historyActionDelete') + '</button></td>';
         newTbody.appendChild(tr);
       });
       table.appendChild(newTbody);
-      // 重新引用 tbody
       window.loginHistoryList = newTbody;
     } else {
       tbody.innerHTML = '<tr><td colspan="4">' + t('historyLoadFail') + '</td></tr>';
@@ -1945,7 +1926,6 @@ async function submitChangePwd() {
 }
 
 // ---------- 文件列表 ----------
-// 修复：允许传入空字符串表示根目录
 function getFileList(path) {
   var targetPath = (path !== undefined) ? path : currentPath;
   if (!currentBucketId) {
@@ -1972,9 +1952,9 @@ function getFileList(path) {
         tr.setAttribute('data-key', item.path);
         tr.addEventListener('click', handleRowClick);
         tr.innerHTML = 
-          '<td><a onclick="event.stopPropagation(); openFolder(\'' + item.path + '\')" style="cursor:pointer;">📁 ' + escapeHtml(folderName) + '</a></td>' +
+          '<td><a onclick="event.stopPropagation(); openFolder(' + jsStr(item.path) + ')" style="cursor:pointer;">📁 ' + escapeHtml(folderName) + '</a></td>' +
           '<td>—</td><td>—</td>' +
-          '<td><button class="copy-btn" onclick="event.stopPropagation(); openRename(\'' + encodeURIComponent(item.path) + '\', \'' + escapeHtml(folderName) + '\')">' + t('rename') + '</button><button class="del-btn" onclick="event.stopPropagation(); delItem(\'' + item.path + '\')">' + t('delete') + '</button></td>';
+          '<td><button class="copy-btn" onclick="event.stopPropagation(); openRename(' + jsStr(encodeURIComponent(item.path)) + ', ' + jsStr(folderName) + ')">' + t('rename') + '</button><button class="del-btn" onclick="event.stopPropagation(); delItem(' + jsStr(item.path) + ')">' + t('delete') + '</button></td>';
         listDom.appendChild(tr);
       });
       json.files.forEach(function(item) {
@@ -1986,13 +1966,13 @@ function getFileList(path) {
         tr.setAttribute('data-key', item.fullKey);
         tr.addEventListener('click', handleRowClick);
         var actions = '';
-        if (item.url) actions += '<a href="' + item.url + '" target="_blank" onclick="event.stopPropagation();">' + t('preview') + '</a>';
-        actions += '<button class="copy-btn" onclick="event.stopPropagation(); downloadFile(\'' + item.downloadUrl + '\')">' + t('download') + '</button>';
-        actions += '<button class="copy-btn" onclick="event.stopPropagation(); copyLink(\'' + item.url + '\', \'' + escapeHtml(item.name) + '\')">' + t('copyLink') + '</button>';
-        if (isTextFile) actions += '<button class="copy-btn" onclick="event.stopPropagation(); openEditor(\'' + encodeURIComponent(item.fullKey) + '\', \'' + escapeHtml(item.name) + '\')">' + t('edit') + '</button>';
-        actions += '<button class="del-btn" onclick="event.stopPropagation(); delItem(\'' + item.fullKey + '\')">' + t('delete') + '</button>';
+        if (item.url) actions += '<a href="' + escapeHtml(item.url) + '" target="_blank" onclick="event.stopPropagation();">' + t('preview') + '</a>';
+        actions += '<button class="copy-btn" onclick="event.stopPropagation(); downloadFile(' + jsStr(item.downloadUrl) + ')">' + t('download') + '</button>';
+        actions += '<button class="copy-btn" onclick="event.stopPropagation(); copyLink(' + jsStr(item.url) + ', ' + jsStr(item.name) + ')">' + t('copyLink') + '</button>';
+        if (isTextFile) actions += '<button class="copy-btn" onclick="event.stopPropagation(); openEditor(' + jsStr(encodeURIComponent(item.fullKey)) + ', ' + jsStr(item.name) + ')">' + t('edit') + '</button>';
+        actions += '<button class="del-btn" onclick="event.stopPropagation(); delItem(' + jsStr(item.fullKey) + ')">' + t('delete') + '</button>';
         tr.innerHTML = 
-          '<td><span onclick="event.stopPropagation(); openRename(\'' + encodeURIComponent(item.fullKey) + '\', \'' + escapeHtml(item.name) + '\')" style="cursor:pointer;">📄 ' + escapeHtml(item.name) + '</span></td>' +
+          '<td><span onclick="event.stopPropagation(); openRename(' + jsStr(encodeURIComponent(item.fullKey)) + ', ' + jsStr(item.name) + ')" style="cursor:pointer;">📄 ' + escapeHtml(item.name) + '</span></td>' +
           '<td>' + size + '</td><td>' + time + '</td>' +
           '<td>' + actions + '</td>';
         listDom.appendChild(tr);
@@ -2274,7 +2254,6 @@ async function saveEditor() {
 function openRename(encodedKey, oldName) {
   currentRenameKey = decodeURIComponent(encodedKey);
   document.getElementById('renameOldName').innerText = oldName;
-  // 确保当前名称标签已翻译
   var renameP = document.querySelector('#renameModal p');
   if (renameP) {
     var textNode = renameP.childNodes[0];
