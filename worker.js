@@ -1,7 +1,7 @@
 import { AwsClient } from 'aws4fetch';
 import { XMLParser } from 'fast-xml-parser';
 
-// ==================== 工具函数 ====================
+// ======== 工具函数 =========
 
 function bufferToHex(buffer) {
   return Array.from(new Uint8Array(buffer))
